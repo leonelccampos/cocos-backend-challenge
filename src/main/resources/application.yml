@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: coco-bank-challenge
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cocobank}
+    username: ${DB_USERNAME:cocobank}
+    password: ${DB_PASSWORD:cocobank}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
