@@ -1,19 +1,20 @@
 # coco-bank-challenge
 
-API backend de un sistema bancario. Este repositorio contiene el scaffold técnico aprobado; las funcionalidades de portfolio, búsqueda y órdenes se implementarán luego, cada una con su SDD.
+API backend de un sistema bancario. La consulta de portfolio está implementada; búsqueda y órdenes se abordarán mediante sus especificaciones de feature.
 
 La consigna original solicita Node.js. Este proyecto usa Java por decisión documentada en [`PROJECT_SPEC.md`](./PROJECT_SPEC.md).
 
-## Documentación
+## Documentación y decisiones
 
-- [`PROJECT_SPEC.md`](./PROJECT_SPEC.md): stack, arquitectura y decisiones de diseño.
-- [`AGENTS.md`](./AGENTS.md): instrucciones operativas para agentes de código.
+- [`docs/constitution.md`](./docs/constitution.md): principios del proyecto.
+- [`PROJECT_SPEC.md`](./PROJECT_SPEC.md): decisiones técnicas y arquitectónicas aprobadas.
+- [`AGENTS.md`](./AGENTS.md): reglas operativas y ubicación de las fuentes de verdad.
 - [`backend-challenge.md`](./backend-challenge.md): consigna funcional original.
 - [`database.sql`](./database.sql): esquema y datos de referencia entregados.
+- [`specs/`](./specs/): especificaciones, planes y tareas por feature.
+- [`preguntas.md`](./preguntas.md): decisiones de negocio pendientes de validación por los owners.
 
-## Stack
-
-Java 25, Spring Boot 4.1.2, Gradle 9.9.1 (Kotlin DSL), Spring Data JPA/Hibernate, PostgreSQL, Flyway, OpenAPI/Swagger UI, JUnit/Mockito/MockMvc, Testcontainers y Spotless. Las decisiones y motivos están en [`PROJECT_SPEC.md`](./PROJECT_SPEC.md).
+El stack aprobado está detallado en [`PROJECT_SPEC.md`](./PROJECT_SPEC.md).
 
 ## Requisitos
 
@@ -38,7 +39,11 @@ set +a
 ./gradlew bootRun
 ```
 
-La aplicación escucha por defecto en `http://localhost:8080`. Todavía no hay endpoints de negocio.
+La aplicación escucha por defecto en `http://localhost:8080`. El endpoint de portfolio es `GET /api/v1/users/{userId}/portfolio?accountNumber=...`.
+Las posiciones netas negativas se incluyen con cantidad y valor de mercado negativos, según la spec de portfolio.
+El porcentaje de rendimiento acumulado de cada instrumento se devuelve en el campo `performance`.
+`dailyReturn` es la variación diaria estimada en pesos cuando hay un cierre válido de hoy y la posición no registra operaciones `FILLED` hoy; si no puede calcularse, es `null`. La fecha de la orden se usa como proxy de ejecución y puede no reflejar ejecuciones posteriores; ver la spec para las condiciones y limitaciones.
+La valuación usa el último `close` positivo fechado o, si no existe, el `previousClose` positivo del registro fechado más reciente; este último no tiene fecha exacta en el esquema. Si no hay precio utilizable, la posición permanece en la respuesta como `UNAVAILABLE` y se excluye del total.
 
 ### Comprobar que la aplicación está levantada
 
@@ -75,4 +80,4 @@ Aplicar formato:
 
 ## Estado
 
-Scaffold técnico únicamente. No se implementaron reglas de negocio ni autenticación. Las reglas pendientes deben resolverse en el SDD de cada funcionalidad antes de codificarlas.
+Portfolio implementado según [`specs/001-get-portfolio/`](./specs/001-get-portfolio/). Búsqueda, órdenes y autenticación no están implementados; las decisiones funcionales pendientes se resuelven en la spec de cada feature.
