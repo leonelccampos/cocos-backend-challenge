@@ -1,0 +1,498 @@
+{
+  "info": {
+    "_postman_id": "6ef162f2-8135-48a5-8ff9-3b5acfa23b27",
+    "name": "Coco Bank - Portfolio",
+    "description": "Casos manuales para GET portfolio. Ejecutar mediante Postman Desktop o Desktop Agent con la aplicación local encendida. Las variables userId y accountNumber deben identificar una cuenta existente. No hay autenticación en la API. Comparar el estado HTTP y la respuesta con lo indicado en cada caso.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "7024653"
+  },
+  "item": [
+    {
+      "name": "Portfolio existente — esperado 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/2/portfolio?accountNumber=10002",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "2",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "value": "10002",
+              "key": "accountNumber"
+            }
+          ]
+        },
+        "description": "Cuenta de ejemplo con datos consistentes. Respuesta esperada: HTTP 200. Las cuentas e importes dependen de los datos cargados en PostgreSQL."
+      },
+      "response": [
+        {
+          "name": "Portfolio existente — esperado 200",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/2/portfolio?accountNumber=10002",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "2",
+                "portfolio"
+              ],
+              "query": [
+                {
+                  "key": "accountNumber",
+                  "value": "10002"
+                }
+              ]
+            }
+          },
+          "_postman_previewlanguage": "json",
+          "header": null,
+          "cookie": [],
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "Cuenta inexistente — esperado 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber=NOT-FOUND",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "NOT-FOUND"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Usuario inexistente — esperado 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/999999999/portfolio?accountNumber={{accountNumber}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "999999999",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Cuenta faltante — esperado 400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Cuenta vacía — esperado 400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber=",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Cuenta de más de 20 caracteres — esperado 400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber=123456789012345678901",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "123456789012345678901"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Usuario no numérico — esperado 400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/not-an-id/portfolio?accountNumber={{accountNumber}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "not-an-id",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Usuario cero — esperado 400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/0/portfolio?accountNumber={{accountNumber}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "0",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Segmento de usuario ausente — esperado 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/portfolio?accountNumber={{accountNumber}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Portfolio con posición negativa — esperado 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Accept"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/1/portfolio?accountNumber=10001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "1",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "value": "10001",
+              "key": "accountNumber"
+            }
+          ]
+        },
+        "description": "Con los datos originales: BMA tiene cantidad -10 y performance 0.23376623. La respuesta debe incluir performance y no accumulatedReturnPercentage. Reiniciar la aplicación para cargar la implementación actualizada."
+      },
+      "response": []
+    },
+    {
+      "name": "Portfolio con tenencias positivas y movimientos — esperado 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Accept"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/5/portfolio?accountNumber=POSTMAN-HAPPY-01",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "5",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "POSTMAN-HAPPY-01"
+            }
+          ]
+        },
+        "description": "Cuenta sintética cargada en la base local. Con la cotización ficticia de TESTDAILY fechada 2026-11-16, se espera HTTP 200: availableCash 822350; totalAccountValue 961364; GGAL quantity 80, dailyReturn null; YPFD quantity 8, dailyReturn null; TESTDAILY quantity 10, marketValue 1200, performance 20 y dailyReturn 100. TESTDAILY es ficticio; su rendimiento diario volverá a ser null cuando la fecha ya no sea 2026-11-16. GGAL e YPFD usan cierres históricos del 14/07/2023. El ejemplo guardado «200 — portfolio con tenencias positivas» es anterior a la incorporación de TESTDAILY y ya no refleja la base actual. La cuenta y sus datos se perderán si se recrea la base local."
+      },
+      "response": [
+        {
+          "name": "200 — portfolio con tenencias positivas",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "value": "application/json",
+                "key": "Accept"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/5/portfolio?accountNumber=POSTMAN-HAPPY-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "5",
+                "portfolio"
+              ],
+              "query": [
+                {
+                  "key": "accountNumber",
+                  "value": "POSTMAN-HAPPY-01"
+                }
+              ]
+            },
+            "description": "Cuenta sintética cargada en la base local. Con la cotización ficticia de TESTDAILY fechada 2026-11-16, se espera HTTP 200: availableCash 822350; totalAccountValue 961364; GGAL quantity 80, dailyReturn null; YPFD quantity 8, dailyReturn null; TESTDAILY quantity 10, marketValue 1200, performance 20 y dailyReturn 100. TESTDAILY es ficticio; su rendimiento diario volverá a ser null cuando la fecha ya no sea 2026-11-16. GGAL e YPFD usan cierres históricos del 14/07/2023. El ejemplo guardado «200 — portfolio con tenencias positivas» es anterior a la incorporación de TESTDAILY y ya no refleja la base actual. La cuenta y sus datos se perderán si se recrea la base local."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "value": "application/json",
+              "key": "Content-Type"
+            }
+          ],
+          "cookie": [],
+          "body": "{\"availableCash\":823350.00,\"totalAccountValue\":961164.00,\"instruments\":[{\"instrumentId\":34,\"ticker\":\"GGAL\",\"name\":\"Grupo Financiero Galicia\",\"type\":\"ACCIONES\",\"quantity\":80,\"marketValue\":70864.00,\"accumulatedReturn\":8864.00,\"performance\":11.08000000,\"dailyReturn\":null,\"valuationStatus\":\"AVAILABLE\"},{\"instrumentId\":50,\"ticker\":\"YPFD\",\"name\":\"Y.P.F. S.A.\",\"type\":\"ACCIONES\",\"quantity\":8,\"marketValue\":62700.00,\"accumulatedReturn\":2300.00,\"performance\":3.02631579,\"dailyReturn\":null,\"valuationStatus\":\"AVAILABLE\"}]}"
+        },
+        {
+          "name": "200 — rendimiento diario sintético 2026-11-16",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "value": "application/json",
+                "key": "Accept"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/5/portfolio?accountNumber=POSTMAN-HAPPY-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "5",
+                "portfolio"
+              ],
+              "query": [
+                {
+                  "key": "accountNumber",
+                  "value": "POSTMAN-HAPPY-01"
+                }
+              ]
+            },
+            "description": "Cuenta sintética cargada en la base local. Con la cotización ficticia de TESTDAILY fechada 2026-11-16, se espera HTTP 200: availableCash 822350; totalAccountValue 961364; GGAL quantity 80, dailyReturn null; YPFD quantity 8, dailyReturn null; TESTDAILY quantity 10, marketValue 1200, performance 20 y dailyReturn 100. TESTDAILY es ficticio; su rendimiento diario volverá a ser null cuando la fecha ya no sea 2026-11-16. GGAL e YPFD usan cierres históricos del 14/07/2023. El ejemplo guardado «200 — portfolio con tenencias positivas» es anterior a la incorporación de TESTDAILY y ya no refleja la base actual. La cuenta y sus datos se perderán si se recrea la base local."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "value": "application/json",
+              "key": "Content-Type"
+            }
+          ],
+          "cookie": [],
+          "body": "{\"availableCash\":822350.00,\"totalAccountValue\":961364.00,\"instruments\":[{\"instrumentId\":34,\"ticker\":\"GGAL\",\"name\":\"Grupo Financiero Galicia\",\"type\":\"ACCIONES\",\"quantity\":80,\"marketValue\":70864.00,\"accumulatedReturn\":8864.00,\"performance\":11.08000000,\"dailyReturn\":null,\"valuationStatus\":\"AVAILABLE\"},{\"instrumentId\":50,\"ticker\":\"YPFD\",\"name\":\"Y.P.F. S.A.\",\"type\":\"ACCIONES\",\"quantity\":8,\"marketValue\":62700.00,\"accumulatedReturn\":2300.00,\"performance\":3.02631579,\"dailyReturn\":null,\"valuationStatus\":\"AVAILABLE\"},{\"instrumentId\":67,\"ticker\":\"TESTDAILY\",\"name\":\"Instrumento ficticio para prueba diaria\",\"type\":\"ACCIONES\",\"quantity\":10,\"marketValue\":1200.00,\"accumulatedReturn\":200.00,\"performance\":20.00000000,\"dailyReturn\":100.00,\"valuationStatus\":\"AVAILABLE\"}]}"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "description": "ID de usuario de datos de ejemplo; modificar si corresponde."
+    },
+    {
+      "key": "accountNumber",
+      "value": "10001",
+      "description": "Número de cuenta de datos de ejemplo; modificar si corresponde."
+    }
+  ]
+}
