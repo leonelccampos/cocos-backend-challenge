@@ -1,14 +1,17 @@
 package com.cocobank.challenge.portfolio.adapter.out.persistence.adapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.cocobank.challenge.portfolio.application.dto.PortfolioReadData;
 import com.cocobank.challenge.portfolio.application.usecase.GetPortfolioUseCase;
+import com.cocobank.challenge.portfolio.domain.InvalidPortfolioDataException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -146,6 +149,26 @@ class PortfolioReadAdapterIT {
   void returnsAbsentForAnUnmatchedAccount() {
     assertThat(adapter.findByUserIdAndAccountNumber(1, "10002")).isEmpty();
     assertThat(adapter.findByUserIdAndAccountNumber(999, "10001")).isEmpty();
+  }
+
+  @Test
+  void rejectsPersistedOrderWithoutInstrumentIdExplicitly() {
+    String accountNumber = UUID.randomUUID().toString().substring(0, 20);
+    int userId =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO users (accountnumber) VALUES (?) RETURNING id",
+            Integer.class,
+            accountNumber);
+    jdbcTemplate.update(
+        """
+        INSERT INTO orders (userid, size, price, side, status)
+        VALUES (?, 1, 10, 'BUY', 'FILLED')
+        """,
+        userId);
+
+    assertThatThrownBy(() -> adapter.findByUserIdAndAccountNumber(userId, accountNumber))
+        .isInstanceOf(InvalidPortfolioDataException.class)
+        .hasMessage("Order movement is missing its instrument ID");
   }
 
   @BeforeEach

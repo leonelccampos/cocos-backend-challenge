@@ -12,11 +12,14 @@ import ch.qos.logback.core.read.ListAppender;
 import com.cocobank.challenge.portfolio.adapter.out.persistence.repository.MarketPriceProjection;
 import com.cocobank.challenge.portfolio.adapter.out.persistence.repository.OrderMovementProjection;
 import com.cocobank.challenge.portfolio.adapter.out.persistence.repository.PortfolioReadRepository;
+import com.cocobank.challenge.portfolio.domain.InvalidPortfolioDataException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -130,5 +133,44 @@ class PortfolioReadAdapterTest {
               .contains("PREVIOUS_CLOSE", "record_date=2023-07-14");
           assertThat(event.getFormattedMessage()).doesNotContain("123.45", "10001");
         });
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"instrumentId", "size", "side", "status"})
+  void rejectsOrderMovementProjectionWithMissingRequiredFields(String missingField) {
+    OrderMovementProjection movement = mock(OrderMovementProjection.class);
+    when(repository.existsByUserIdAndAccountNumber(1, "10001")).thenReturn(true);
+    when(repository.findOrderMovementsByUserId(1)).thenReturn(List.of(movement));
+    when(movement.getInstrumentId()).thenReturn("instrumentId".equals(missingField) ? null : 7);
+    if (!"instrumentId".equals(missingField)) {
+      when(movement.getSize()).thenReturn("size".equals(missingField) ? null : 10);
+    }
+    if (!"instrumentId".equals(missingField) && !"size".equals(missingField)) {
+      when(movement.getSide()).thenReturn("side".equals(missingField) ? null : "BUY");
+    }
+    if ("status".equals(missingField)) {
+      when(movement.getStatus()).thenReturn(null);
+    }
+
+    assertThatThrownBy(() -> adapter.findByUserIdAndAccountNumber(1, "10001"))
+        .isInstanceOf(InvalidPortfolioDataException.class);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"side", "status"})
+  void rejectsOrderMovementProjectionWithUnsupportedEnumValues(String invalidField) {
+    OrderMovementProjection movement = mock(OrderMovementProjection.class);
+    when(repository.existsByUserIdAndAccountNumber(1, "10001")).thenReturn(true);
+    when(repository.findOrderMovementsByUserId(1)).thenReturn(List.of(movement));
+    when(movement.getInstrumentId()).thenReturn(7);
+    when(movement.getSize()).thenReturn(10);
+    when(movement.getSide()).thenReturn("side".equals(invalidField) ? "UNKNOWN" : "BUY");
+    if ("status".equals(invalidField)) {
+      when(movement.getStatus()).thenReturn("UNKNOWN");
+    }
+
+    assertThatThrownBy(() -> adapter.findByUserIdAndAccountNumber(1, "10001"))
+        .isInstanceOf(InvalidPortfolioDataException.class)
+        .hasMessage("Order movement has an unsupported " + invalidField);
   }
 }

@@ -5,6 +5,7 @@ import com.cocobank.challenge.portfolio.adapter.out.persistence.repository.Order
 import com.cocobank.challenge.portfolio.adapter.out.persistence.repository.PortfolioReadRepository;
 import com.cocobank.challenge.portfolio.application.dto.PortfolioReadData;
 import com.cocobank.challenge.portfolio.application.port.out.PortfolioReadPort;
+import com.cocobank.challenge.portfolio.domain.InvalidPortfolioDataException;
 import com.cocobank.challenge.portfolio.domain.MarketPrice;
 import com.cocobank.challenge.portfolio.domain.OrderMovement;
 import com.cocobank.challenge.portfolio.domain.OrderSide;
@@ -104,15 +105,49 @@ public class PortfolioReadAdapter implements PortfolioReadPort {
   }
 
   private static OrderMovement toOrderMovement(OrderMovementProjection movement) {
+    Integer instrumentId = movement.getInstrumentId();
+    if (instrumentId == null) {
+      throw new InvalidPortfolioDataException("Order movement is missing its instrument ID");
+    }
+
+    Integer size = movement.getSize();
+    if (size == null) {
+      throw new InvalidPortfolioDataException("Order movement is missing its size");
+    }
+
     return new OrderMovement(
-        movement.getInstrumentId(),
-        movement.getSize(),
+        instrumentId,
+        size,
         movement.getPrice(),
-        OrderSide.valueOf(movement.getSide()),
-        OrderStatus.valueOf(movement.getStatus()),
+        parseOrderSide(movement.getSide()),
+        parseOrderStatus(movement.getStatus()),
         movement.getTicker(),
         movement.getName(),
         movement.getInstrumentType(),
         movement.getDateTime());
+  }
+
+  private static OrderSide parseOrderSide(String side) {
+    if (side == null) {
+      throw new InvalidPortfolioDataException("Order movement is missing its side");
+    }
+
+    try {
+      return OrderSide.valueOf(side);
+    } catch (IllegalArgumentException exception) {
+      throw new InvalidPortfolioDataException("Order movement has an unsupported side");
+    }
+  }
+
+  private static OrderStatus parseOrderStatus(String status) {
+    if (status == null) {
+      throw new InvalidPortfolioDataException("Order movement is missing its status");
+    }
+
+    try {
+      return OrderStatus.valueOf(status);
+    } catch (IllegalArgumentException exception) {
+      throw new InvalidPortfolioDataException("Order movement has an unsupported status");
+    }
   }
 }
