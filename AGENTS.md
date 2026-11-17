@@ -21,7 +21,7 @@ No dupliques contratos, decisiones ni justificaciones: actualiza la fuente de ve
 - Mantén un tipo de producción con nombre por archivo. Anida tipos solo cuando sean detalles internos usados exclusivamente por su contenedor.
 - Declara primero los métodos públicos y deja los privados al final de la clase. Los métodos usados solo dentro de su clase deben ser `private`; no uses acceso de paquete como seam para las pruebas.
 - Añade o ajusta pruebas enfocadas por comportamiento y conserva una clase de prueba por clase de producción.
-- Al finalizar cada tarea o spec de implementación, verifica los cambios con pruebas unitarias, de integración y solicitudes en Postman; informa los resultados y cualquier verificación bloqueada o no ejecutada.
+- Al finalizar cada tarea o spec de implementación, ejecuta las pruebas Gradle unitarias y de integración y verifica con solicitudes en Postman. Si la API está detenida, levántala para la verificación; resuelve los problemas del entorno antes de concluir e informa los resultados.
 - No agregues dependencias, cambies el esquema o los datos ni alteres contratos aprobados sin autorización.
 - No ocultes errores con valores por defecto ni expongas secretos o datos personales en logs.
 

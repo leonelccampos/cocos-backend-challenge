@@ -26,6 +26,13 @@
       "sourceType": "github",
       "skillPath": "skills/java-debugging/SKILL.md",
       "computedHash": "a40267248188b8ff2fad901974a0d181f327705d0c268c07284e96c9f8e8147b"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "commit": "c9be0e931b7930f7d02126d04774d904c381e7d7",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "3eb972c2d7c818e544e35cc33ea8d7147d4d78ae08142ef40037b0fbac7a2505"
     }
   }
 }

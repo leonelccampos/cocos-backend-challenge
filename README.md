@@ -21,6 +21,20 @@ El stack aprobado está detallado en [`PROJECT_SPEC.md`](./PROJECT_SPEC.md).
 - JDK 25.
 - Docker con Docker Compose.
 
+En macOS, si el JDK 25 ya está instalado con Homebrew pero `java -version` no lo encuentra,
+registra su instalación para el usuario actual:
+
+```bash
+mkdir -p "$HOME/Library/Java/JavaVirtualMachines"
+ln -s "$(brew --prefix openjdk@25)/libexec/openjdk.jdk" \
+  "$HOME/Library/Java/JavaVirtualMachines/openjdk-25.jdk"
+/usr/libexec/java_home -V
+java -version
+```
+
+El enlace usa la ruta estable de Homebrew y no modifica las instalaciones de otros usuarios.
+Si el destino ya existe, comprueba a qué apunta antes de cambiarlo.
+
 ## Ejecutar localmente
 
 Copiar la configuración de ejemplo y levantar PostgreSQL:
