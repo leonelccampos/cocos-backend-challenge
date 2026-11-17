@@ -68,36 +68,46 @@ dependencias ni modificar el esquema o los datos de referencia.
 
 ## Contrato HTTP
 
-- [ ] **T08 — Validar los parámetros de búsqueda.** **RF:** RF-1, RF-2.
+- [x] **T08 — Validar los parámetros de búsqueda.** **RF:** RF-1, RF-2.
   - **Hecho cuando:** la validación HTTP exige `query` no blanco tras recortar y `field`
     exactamente `ticker` o `name`; las solicitudes inválidas responden 400 sin invocar
     el caso de uso.
+  - **Verificación:** pruebas unitarias y MockMvc de la ruta aprobadas; Postman verificó
+    un campo inválido con HTTP 400.
 
-- [ ] **T09 — Exponer la búsqueda y mapear la respuesta.** **RF:** RF-1, RF-4, RF-5, RF-8.
+- [x] **T09 — Exponer la búsqueda y mapear la respuesta.** **RF:** RF-1, RF-4, RF-5, RF-8.
   - **Depende de:** T04, T08.
   - **Hecho cuando:** `GET /api/v1/instruments` delega al caso de uso y devuelve HTTP
     200 sin autenticación, con un arreglo JSON de los seis campos acordados, incluidos
     los valores nulos de precio y fecha cuando correspondan.
+  - **Verificación:** pruebas unitarias, integración y formato Gradle aprobados; curl
+    verificó la búsqueda HTTP 200 y Postman un campo inválido con HTTP 400.
 
-- [ ] **T10 — Traducir la ausencia de resultados.** **RF:** RF-2, RF-6.
+- [x] **T10 — Traducir la ausencia de resultados.** **RF:** RF-2, RF-6.
   - **Depende de:** T04, T08, T09.
   - **Hecho cuando:** una búsqueda válida sin coincidencias responde 404 con
     `ProblemDetail`, mientras que los parámetros inválidos siguen respondiendo 400.
+  - **Verificación:** pruebas unitarias, integración y formato Gradle aprobados; curl
+    verificó el 404 y Postman el 400 por campo inválido.
 
-- [ ] **T11 — Verificar el controlador y documentar OpenAPI.** **RF:** RF-1, RF-2, RF-4,
+- [x] **T11 — Verificar el controlador y documentar OpenAPI.** **RF:** RF-1, RF-2, RF-4,
   RF-5, RF-6, RF-8.
   - **Depende de:** T08, T09, T10.
   - **Hecho cuando:** MockMvc comprueba la ruta, método, parámetros, estados 200/400/404,
     estructura y valores de la respuesta, ausencia de autenticación y no invocación del
     caso de uso ante datos inválidos; OpenAPI describe la operación y esos estados.
+  - **Verificación:** MockMvc, OpenAPI con PostgreSQL, pruebas Gradle y formato aprobados;
+    Postman verificó HTTP 400 para un campo inválido.
 
 ## Verificación y documentación
 
-- [ ] **T12 — Verificar el flujo HTTP completo con PostgreSQL.** **RF:** RF-1–RF-8.
+- [x] **T12 — Verificar el flujo HTTP completo con PostgreSQL.** **RF:** RF-1–RF-8.
   - **Depende de:** T02, T03, T06, T07, T11.
   - **Hecho cuando:** las pruebas HTTP con Testcontainers pasan para ticker y nombre con
     acentos, 200/400/404, filtro, orden, cotizaciones y consulta sin credenciales; al
     comparar instrumentos, órdenes y cotizaciones antes y después no hay cambios.
+  - **Verificación:** pruebas HTTP con PostgreSQL, unitarias y formato Gradle aprobados;
+    Postman verificó HTTP 400 para un campo inválido.
 
 - [ ] **T13 — Documentar y probar los ejemplos en Postman.** **RF:** RF-1–RF-6, RF-8.
   - **Depende de:** T12.
