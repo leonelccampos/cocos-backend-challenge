@@ -1,6 +1,6 @@
 # coco-bank-challenge
 
-API backend de un sistema bancario. La consulta de portfolio está implementada; búsqueda y órdenes se abordarán mediante sus especificaciones de feature.
+API backend de un sistema bancario. Están implementadas la consulta de portfolio y la búsqueda de activos; las órdenes se abordarán mediante su especificación de feature.
 
 La consigna original solicita Node.js. Este proyecto usa Java por decisión documentada en [`PROJECT_SPEC.md`](./PROJECT_SPEC.md).
 
@@ -59,6 +59,26 @@ El porcentaje de rendimiento acumulado de cada instrumento se devuelve en el cam
 `dailyReturn` es la variación diaria estimada en pesos cuando hay un cierre válido de hoy y la posición no registra operaciones `FILLED` hoy; si no puede calcularse, es `null`. La fecha de la orden se usa como proxy de ejecución y puede no reflejar ejecuciones posteriores; ver la spec para las condiciones y limitaciones.
 La valuación usa el último `close` positivo fechado o, si no existe, el `previousClose` positivo del registro fechado más reciente; este último no tiene fecha exacta en el esquema. Si no hay precio utilizable, la posición permanece en la respuesta como `UNAVAILABLE` y se excluye del total.
 
+### Buscar activos
+
+`GET /api/v1/instruments?query=...&field=...` no requiere autenticación. `query` debe
+contener texto no blanco y `field` debe ser exactamente `ticker` o `name`. La búsqueda
+por subcadena no distingue mayúsculas ni acentos. Devuelve todos los instrumentos de tipo
+`ACCIONES`, ordenados por ticker e ID, con `id`, `ticker`, `name`, `type`, `marketPrice`
+y `closeDate`. Los parámetros inválidos producen HTTP 400; sin coincidencias se responde 404.
+
+El precio es el `close` positivo fechado más reciente. Si no existe, se usa el
+`previousClose` positivo de la fila fechada más reciente, con `closeDate: null`; si
+ninguno es utilizable, ambos campos son `null`.
+
+```bash
+curl 'http://localhost:8080/api/v1/instruments?query=GGAL&field=ticker'
+curl 'http://localhost:8080/api/v1/instruments?query=banco&field=name'
+```
+
+La [colección Postman](./src/main/resources/postman/Coco%20Bank%20-%20Portfolio.postman_collection.json)
+incluye ejemplos de éxito y errores de búsqueda. Las cotizaciones dependen de la base local.
+
 ### Comprobar que la aplicación está levantada
 
 Deja `bootRun` ejecutándose y, desde el navegador, abre Swagger UI en `http://localhost:8080/swagger-ui.html`. La especificación OpenAPI está disponible en `http://localhost:8080/v3/api-docs`.
@@ -94,4 +114,6 @@ Aplicar formato:
 
 ## Estado
 
-Portfolio implementado según [`specs/001-get-portfolio/`](./specs/001-get-portfolio/). Búsqueda, órdenes y autenticación no están implementados; las decisiones funcionales pendientes se resuelven en la spec de cada feature.
+Portfolio y búsqueda implementados según [`specs/001-get-portfolio/`](./specs/001-get-portfolio/)
+y [`specs/002-search-instruments/`](./specs/002-search-instruments/). Órdenes y autenticación
+no están implementadas; las decisiones funcionales pendientes se resuelven en la spec de cada feature.

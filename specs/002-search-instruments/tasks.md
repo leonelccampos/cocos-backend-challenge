@@ -109,15 +109,20 @@ dependencias ni modificar el esquema o los datos de referencia.
   - **Verificación:** pruebas HTTP con PostgreSQL, unitarias y formato Gradle aprobados;
     Postman verificó HTTP 400 para un campo inválido.
 
-- [ ] **T13 — Documentar y probar los ejemplos en Postman.** **RF:** RF-1–RF-6, RF-8.
+- [x] **T13 — Documentar y probar los ejemplos en Postman.** **RF:** RF-1–RF-6, RF-8.
   - **Depende de:** T12.
   - **Hecho cuando:** el README describe la ruta y sus parámetros, la colección existente
     incluye búsquedas por ticker y nombre y casos 400/404, y las solicitudes ejecutadas
     en Postman confirman los estados y los campos de cotización frente a PostgreSQL.
+  - **Verificación:** el usuario ejecutó los cinco ejemplos y confirmó estados, precios
+    y fechas frente a PostgreSQL; pruebas unitarias, integración y formato Gradle aprobados.
 
-- [ ] **T14 — Ejecutar la regresión y cerrar la iniciativa.** **RF:** RF-1–RF-8.
+- [x] **T14 — Ejecutar la regresión y cerrar la iniciativa.** **RF:** RF-1–RF-8.
   - **Depende de:** T01–T13.
   - **Hecho cuando:** `./gradlew test`, `./gradlew integrationTest`,
     `./gradlew spotlessCheck` y `./gradlew check` pasan; la verificación en Postman
     está completada y todos los RF tienen pruebas correspondientes sin cambios de esquema
     ni dependencias nuevas.
+  - **Verificación:** `./gradlew test integrationTest spotlessCheck check` aprobó 86 pruebas
+    unitarias y 30 de integración, sin fallos ni omisiones. Los ejemplos de Postman fueron
+    confirmados por el usuario; el esquema y las dependencias no cambiaron en la iniciativa.

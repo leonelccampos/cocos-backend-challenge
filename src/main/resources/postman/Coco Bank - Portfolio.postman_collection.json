@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "6ef162f2-8135-48a5-8ff9-3b5acfa23b27",
     "name": "Coco Bank - Portfolio",
-    "description": "Casos manuales para GET portfolio. Ejecutar mediante Postman Desktop o Desktop Agent con la aplicación local encendida. Las variables userId y accountNumber deben identificar una cuenta existente. No hay autenticación en la API. Comparar el estado HTTP y la respuesta con lo indicado en cada caso.",
+    "description": "Casos manuales para consultar portfolio y buscar activos. Ejecutar mediante Postman Desktop o Desktop Agent con la aplicación local encendida. Las variables userId y accountNumber deben identificar una cuenta existente. No hay autenticación en la API. Comparar el estado HTTP y la respuesta con lo indicado en cada caso.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "7024653"
   },
@@ -477,7 +477,84 @@
           "body": "{\"availableCash\":822350.00,\"totalAccountValue\":961364.00,\"instruments\":[{\"instrumentId\":34,\"ticker\":\"GGAL\",\"name\":\"Grupo Financiero Galicia\",\"type\":\"ACCIONES\",\"quantity\":80,\"marketValue\":70864.00,\"accumulatedReturn\":8864.00,\"performance\":11.08000000,\"dailyReturn\":null,\"valuationStatus\":\"AVAILABLE\"},{\"instrumentId\":50,\"ticker\":\"YPFD\",\"name\":\"Y.P.F. S.A.\",\"type\":\"ACCIONES\",\"quantity\":8,\"marketValue\":62700.00,\"accumulatedReturn\":2300.00,\"performance\":3.02631579,\"dailyReturn\":null,\"valuationStatus\":\"AVAILABLE\"},{\"instrumentId\":67,\"ticker\":\"TESTDAILY\",\"name\":\"Instrumento ficticio para prueba diaria\",\"type\":\"ACCIONES\",\"quantity\":10,\"marketValue\":1200.00,\"accumulatedReturn\":200.00,\"performance\":20.00000000,\"dailyReturn\":100.00,\"valuationStatus\":\"AVAILABLE\"}]}"
         }
       ]
-    }
+    },
+      {
+        "name": "Búsqueda de activos",
+        "item": [
+          {
+            "name": "Por ticker — esperado 200",
+            "request": {
+              "method": "GET",
+              "header": [{"key": "Accept", "value": "application/json"}],
+              "url": {
+                "raw": "{{baseUrl}}/api/v1/instruments?query=GGAL&field=ticker",
+                "host": ["{{baseUrl}}"],
+                "path": ["api", "v1", "instruments"],
+                "query": [{"key": "query", "value": "GGAL"}, {"key": "field", "value": "ticker"}]
+              },
+              "description": "Con los datos originales: GGAL con precio 885.80 y fecha 2023-07-14. Los precios pueden cambiar en la base local."
+            },
+            "response": []
+          },
+          {
+            "name": "Por nombre — esperado 200",
+            "request": {
+              "method": "GET",
+              "header": [{"key": "Accept", "value": "application/json"}],
+              "url": {
+                "raw": "{{baseUrl}}/api/v1/instruments?query=banco&field=name",
+                "host": ["{{baseUrl}}"],
+                "path": ["api", "v1", "instruments"],
+                "query": [{"key": "query", "value": "banco"}, {"key": "field", "value": "name"}]
+              },
+              "description": "Comprobar el orden por ticker e ID y los campos de precio y fecha."
+            },
+            "response": []
+          },
+          {
+            "name": "Consulta vacía — esperado 400",
+            "request": {
+              "method": "GET",
+              "header": [{"key": "Accept", "value": "application/json"}],
+              "url": {
+                "raw": "{{baseUrl}}/api/v1/instruments?query=&field=ticker",
+                "host": ["{{baseUrl}}"],
+                "path": ["api", "v1", "instruments"],
+                "query": [{"key": "query", "value": ""}, {"key": "field", "value": "ticker"}]
+              }
+            },
+            "response": []
+          },
+          {
+            "name": "Campo inválido — esperado 400",
+            "request": {
+              "method": "GET",
+              "header": [{"key": "Accept", "value": "application/json"}],
+              "url": {
+                "raw": "{{baseUrl}}/api/v1/instruments?query=GGAL&field=Ticker",
+                "host": ["{{baseUrl}}"],
+                "path": ["api", "v1", "instruments"],
+                "query": [{"key": "query", "value": "GGAL"}, {"key": "field", "value": "Ticker"}]
+              }
+            },
+            "response": []
+          },
+          {
+            "name": "Sin coincidencias — esperado 404",
+            "request": {
+              "method": "GET",
+              "header": [{"key": "Accept", "value": "application/json"}],
+              "url": {
+                "raw": "{{baseUrl}}/api/v1/instruments?query=NO_MATCH_002&field=ticker",
+                "host": ["{{baseUrl}}"],
+                "path": ["api", "v1", "instruments"],
+                "query": [{"key": "query", "value": "NO_MATCH_002"}, {"key": "field", "value": "ticker"}]
+              }
+            },
+            "response": []
+          }
+        ]
+      }
   ],
   "variable": [
     {
