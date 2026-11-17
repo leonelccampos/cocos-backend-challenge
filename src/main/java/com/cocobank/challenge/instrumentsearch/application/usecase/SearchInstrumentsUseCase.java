@@ -6,7 +6,9 @@ import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchField;
 import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchPolicy;
 import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchResult;
 import java.util.List;
+import org.springframework.stereotype.Service;
 
+@Service
 public final class SearchInstrumentsUseCase {
 
   private final InstrumentSearchReadPort readPort;

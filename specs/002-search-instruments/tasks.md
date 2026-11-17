@@ -39,25 +39,32 @@ dependencias ni modificar el esquema o los datos de referencia.
 
 ## Persistencia
 
-- [ ] **T05 — Consultar el catálogo y los candidatos de cotización.** **RF:** RF-4, RF-5, RF-7.
+- [x] **T05 — Consultar el catálogo y los candidatos de cotización.** **RF:** RF-4, RF-5, RF-7.
   - **Depende de:** T01.
   - **Hecho cuando:** la consulta y su proyección devuelven un candidato por instrumento,
     con el `close` positivo fechado más reciente y el `previousClose` de la fila fechada
     más reciente, ambos con desempate por ID; usan nombres físicos y alias explícitos,
     sin consultar toda la historia ni generar consultas N+1.
+  - **Verificación:** pruebas unitarias, integración y formato Gradle aprobados; la prueba
+    inicial usa PostgreSQL real. Postman verificó el portfolio existente con HTTP 200;
+    la ruta de búsqueda aún no existe. Los casos adicionales quedan para T06.
 
-- [ ] **T06 — Verificar la consulta con PostgreSQL.** **RF:** RF-4, RF-5, RF-7.
+- [x] **T06 — Verificar la consulta con PostgreSQL.** **RF:** RF-4, RF-5, RF-7.
   - **Depende de:** T05.
   - **Hecho cuando:** las pruebas con Testcontainers y PostgreSQL real verifican
     desempates, filas sin fecha, precios no positivos, fallback, columnas nulas, tipos
     y ausencia de escrituras.
+  - **Verificación:** pruebas unitarias, integración con PostgreSQL y formato Gradle
+    aprobados; Postman verificó el portfolio existente con HTTP 200.
 
-- [ ] **T07 — Implementar el adaptador de lectura.** **RF:** RF-4, RF-5, RF-7.
+- [x] **T07 — Implementar el adaptador de lectura.** **RF:** RF-4, RF-5, RF-7.
   - **Depende de:** T04, T05.
   - **Hecho cuando:** el adaptador implementa el puerto, mapea la proyección a candidatos,
     ejecuta la lectura en una transacción de solo lectura y propaga los errores de
     persistencia sin convertirlos en resultados vacíos; el caso de uso queda registrado
     en Spring con el adaptador disponible.
+  - **Verificación:** pruebas unitarias, integración con PostgreSQL y formato Gradle
+    aprobados; Postman verificó el portfolio existente con HTTP 200.
 
 ## Contrato HTTP
 
