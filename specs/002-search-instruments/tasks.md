@@ -1,10 +1,46 @@
 # Tareas de implementación — Búsqueda de activos
 
-Las tareas están ordenadas por dependencia. Los requisitos, el diseño y los casos de
-prueba se detallan en [la spec](./spec.md) y [el plan](./plan.md). No agregar
-dependencias ni modificar el esquema o los datos de referencia.
+Los requisitos y el diseño vigente se detallan en [la spec](./spec.md) y
+[el plan](./plan.md). No agregar dependencias ni modificar el esquema o los datos
+de referencia.
 
-## Dominio y aplicación
+## Refactor: búsqueda en PostgreSQL
+
+- [x] **T15 — Delegar la búsqueda desde aplicación.** **RF:** RF-2, RF-3, RF-4, RF-6, RF-7.
+  - **Depende de:** T14.
+  - **Hecho cuando:** el caso de uso recorta la consulta y delega al puerto; el adaptador
+    traduce el criterio y mapea el resultado sin política ni candidatos en aplicación.
+  - **Verificación:** pruebas unitarias de caso de uso y adaptador aprobadas.
+
+- [x] **T16 — Resolver coincidencias, precios y orden en PostgreSQL.** **RF:** RF-3–RF-5, RF-7.
+  - **Depende de:** T15.
+  - **Hecho cuando:** el repositorio devuelve solo las acciones coincidentes, con precio
+    y fecha según RF-5 y orden por ticker e ID; respeta el alcance de acentos de RF-3.
+  - **Verificación:** integración con PostgreSQL real aprobada para búsqueda, acentos
+    latinos, caracteres literales, orden, precios y ausencia de escrituras.
+
+- [x] **T17 — Ejecutar la regresión del refactor.** **RF:** RF-1–RF-8.
+  - **Depende de:** T16.
+  - **Hecho cuando:** las pruebas unitarias, de integración y el formato Gradle pasan
+    con el diseño actual, sin cambios de esquema ni dependencias.
+  - **Verificación:** `./gradlew spotlessApply test integrationTest spotlessCheck check`
+    aprobó 77 pruebas unitarias y 29 de integración, sin fallos ni omisiones. Postman
+    verificó HTTP 200 por ticker y nombre y HTTP 400 para un campo inválido; curl
+    verificó HTTP 404 sin coincidencias.
+
+- [ ] **T18 — Completar la verificación de ausencia de resultados en Postman.** **RF:** RF-6.
+  - **Depende de:** T17.
+  - **Hecho cuando:** la solicitud sin coincidencias de la colección responde HTTP 404
+    en Postman con el refactor actual.
+  - **Estado:** la interacción de Postman fue bloqueada por el control de foco; el 404
+    se comprobó con curl, no con Postman.
+
+## Historial de implementación inicial
+
+T01–T14 registran el diseño y las verificaciones originales. Sus menciones al dominio,
+la política y los candidatos describen esa etapa, no la implementación vigente.
+
+### Dominio y aplicación
 
 - [x] **T01 — Definir los modelos de búsqueda.** **RF:** RF-1, RF-3, RF-4, RF-5.
   - **Hecho cuando:** el dominio representa el campo de búsqueda, los datos candidatos y
@@ -37,7 +73,7 @@ dependencias ni modificar el esquema o los datos de referencia.
   - **Verificación:** pruebas unitarias, integración y formato Gradle aprobados; Postman
     verificó el portfolio existente con HTTP 200. La ruta de búsqueda aún no existe.
 
-## Persistencia
+### Persistencia
 
 - [x] **T05 — Consultar el catálogo y los candidatos de cotización.** **RF:** RF-4, RF-5, RF-7.
   - **Depende de:** T01.
@@ -66,7 +102,7 @@ dependencias ni modificar el esquema o los datos de referencia.
   - **Verificación:** pruebas unitarias, integración con PostgreSQL y formato Gradle
     aprobados; Postman verificó el portfolio existente con HTTP 200.
 
-## Contrato HTTP
+### Contrato HTTP
 
 - [x] **T08 — Validar los parámetros de búsqueda.** **RF:** RF-1, RF-2.
   - **Hecho cuando:** la validación HTTP exige `query` no blanco tras recortar y `field`
@@ -99,7 +135,7 @@ dependencias ni modificar el esquema o los datos de referencia.
   - **Verificación:** MockMvc, OpenAPI con PostgreSQL, pruebas Gradle y formato aprobados;
     Postman verificó HTTP 400 para un campo inválido.
 
-## Verificación y documentación
+### Verificación y documentación
 
 - [x] **T12 — Verificar el flujo HTTP completo con PostgreSQL.** **RF:** RF-1–RF-8.
   - **Depende de:** T02, T03, T06, T07, T11.

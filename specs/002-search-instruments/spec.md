@@ -17,7 +17,7 @@ Permitir que un usuario encuentre instrumentos disponibles en el catálogo del m
 
 - RF-1: CUANDO el cliente solicite `GET /api/v1/instruments?query=...&field=...`, EL SISTEMA requerirá ambos parámetros; `field` deberá ser `ticker` o `name`.
 - RF-2: SI `query` falta, está vacío o contiene solo espacios después de recortar los espacios iniciales y finales, o si `field` falta o no es `ticker` ni `name`, ENTONCES EL SISTEMA responderá con HTTP 400.
-- RF-3: CUANDO los parámetros sean válidos, EL SISTEMA buscará `query` como subcadena del campo indicado por `field`, sin distinguir mayúsculas/minúsculas ni acentos.
+- RF-3: CUANDO los parámetros sean válidos, EL SISTEMA buscará `query` como subcadena del campo indicado por `field`, sin distinguir mayúsculas/minúsculas ni los acentos latinos comunes del catálogo de referencia. Los datos y la respuesta conservarán su escritura original.
 - RF-4: CUANDO existan instrumentos `ACCIONES` que coincidan, EL SISTEMA responderá HTTP 200 con todos los resultados, sin paginación, con los campos `id`, `ticker`, `name`, `type`, `marketPrice` y `closeDate`. `marketPrice` será el precio de cierre en pesos. Los resultados se ordenarán por ticker ascendente y, en caso de empate, por ID ascendente.
 - RF-5: CUANDO se determine `marketPrice`, EL SISTEMA usará el `close` positivo más reciente entre los registros con fecha, ordenados por fecha e ID descendentes; `closeDate` será la fecha de ese registro. SI no existe un `close` positivo utilizable, ENTONCES EL SISTEMA usará `previousClose` del registro con fecha más reciente, con desempate por ID descendente, únicamente si es positivo. Si usa `previousClose`, `closeDate` será `null` porque el esquema no permite conocer la fecha exacta de ese precio. Si no hay un precio utilizable, `marketPrice` y `closeDate` serán `null`.
 - RF-6: SI no existen instrumentos coincidentes, ENTONCES EL SISTEMA responderá con HTTP 404.
@@ -27,6 +27,7 @@ Permitir que un usuario encuentre instrumentos disponibles en el catálogo del m
 ## Requisitos no funcionales
 
 - La búsqueda deberá consultar el catálogo de instrumentos provisto por el proyecto y preservar el esquema de base de datos.
+- No se garantiza equivalencia para marcas Unicode distintas de los acentos cubiertos por RF-3.
 - La documentación estará en español; los identificadores y campos del contrato API, en inglés.
 - La respuesta no deberá incluir datos personales ni información ajena a la identificación de los instrumentos y su cotización de cierre.
 
@@ -35,7 +36,7 @@ Permitir que un usuario encuentre instrumentos disponibles en el catálogo del m
 - `query` faltante, vacío o compuesto solo por espacios después de recortar espacios exteriores: responder 400.
 - `field` faltante o distinto de `ticker` y `name`: responder 400.
 - Ninguna coincidencia: responder 404.
-- Términos con diferencias de mayúsculas, minúsculas o acentos: buscar sin distinguirlas.
+- Términos con diferencias de mayúsculas, minúsculas o acentos latinos comunes: buscar sin distinguirlas, conservando el texto original en la respuesta.
 - Coincidencias en más de un instrumento: devolver todas, sin paginación.
 - Ticker repetido: ordenar por ID ascendente dentro del mismo ticker.
 - Sin `close` positivo disponible: usar `previousClose` positivo del registro fechado más reciente; si se usa, `closeDate` es `null`.

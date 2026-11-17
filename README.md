@@ -66,6 +66,8 @@ contener texto no blanco y `field` debe ser exactamente `ticker` o `name`. La b�
 por subcadena no distingue mayúsculas ni acentos. Devuelve todos los instrumentos de tipo
 `ACCIONES`, ordenados por ticker e ID, con `id`, `ticker`, `name`, `type`, `marketPrice`
 y `closeDate`. Los parámetros inválidos producen HTTP 400; sin coincidencias se responde 404.
+La comparación de acentos cubre los caracteres latinos comunes del catálogo de referencia;
+otras marcas Unicode pueden comportarse de forma diferente.
 
 El precio es el `close` positivo fechado más reciente. Si no existe, se usa el
 `previousClose` positivo de la fila fechada más reciente, con `closeDate: null`; si

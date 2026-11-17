@@ -2,8 +2,6 @@ package com.cocobank.challenge.instrumentsearch.adapter.out.persistence.reposito
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.cocobank.challenge.instrumentsearch.application.usecase.SearchInstrumentsUseCase;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchField;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
@@ -31,10 +29,7 @@ class InstrumentSearchRepositoryIT {
   private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
 
   @Autowired private InstrumentSearchRepository repository;
-
   @Autowired private JdbcTemplate jdbcTemplate;
-
-  @Autowired private SearchInstrumentsUseCase useCase;
 
   @DynamicPropertySource
   static void configureDataSource(DynamicPropertyRegistry registry) {
@@ -44,105 +39,76 @@ class InstrumentSearchRepositoryIT {
   }
 
   @Test
-  void wiresUseCaseThroughReadAdapterToRealPostgres() {
-    Integer id = insertInstrument("WIRING", "Wiring stock", "ACCIONES");
-    insertPrice(id, "2024-01-01", "12.50", "10.00");
+  void searchesSelectedFieldIgnoringLatinAccentsAndCaseAndExcludesOtherTypes() {
+    int first = insertInstrument("T-Á12", "Camio\u0301n", "ACCIONES");
+    int second = insertInstrument("T-B12", "CAMIÓN", "ACCIONES");
+    insertInstrument("T-C12", "Camion", "MONEDA");
+    insertInstrument("CAMION", null, "ACCIONES");
 
-    assertThat(useCase.execute("wiring", InstrumentSearchField.TICKER))
-        .singleElement()
-        .satisfies(result -> {
-          assertThat(result.id()).isEqualTo(id);
-          assertThat(result.marketPrice()).isEqualByComparingTo("12.50");
-          assertThat(result.closeDate()).isEqualTo(LocalDate.parse("2024-01-01"));
-        });
+    assertThat(repository.search("camión", "NAME"))
+        .extracting(InstrumentSearchProjection::getId)
+        .containsExactly(second, first);
+    assertThat(repository.search("t-a12", "TICKER"))
+        .extracting(InstrumentSearchProjection::getId)
+        .containsExactly(first);
   }
 
   @Test
-  void projectsEachInstrumentOnceWithLatestPositiveCloseAndLatestPreviousClose() {
-    Integer stockId = insertInstrument("TEST", "Test stock", "ACCIONES");
-    Integer currencyId = insertInstrument("TSTCUR", "Test currency", "MONEDA");
-    insertPrice(stockId, "2024-01-01", "10.00", "9.00");
-    insertPrice(stockId, "2024-02-01", "20.00", "19.00");
-    insertPrice(stockId, "2024-02-01", "30.00", "29.00");
-    insertPrice(stockId, "2024-03-01", "0.00", "40.00");
-    insertPrice(stockId, "2024-03-01", "-1.00", "50.00");
+  void matchesQueryLiterallyAndOrdersByTickerThenIdWithNullsLast() {
+    int first = insertInstrument("T-AAA", "Find %_", "ACCIONES");
+    int second = insertInstrument("T-AAA", "Find %_", "ACCIONES");
+    int third = insertInstrument(null, "Find %_", "ACCIONES");
+    insertInstrument("T-BBB", "Find text", "ACCIONES");
 
-    List<InstrumentSearchProjection> results = repository.findAllInstrumentSearchCandidates();
-
-    Integer instrumentCount =
-        jdbcTemplate.queryForObject("SELECT count(*) FROM instruments", Integer.class);
-    assertThat(results).hasSize(instrumentCount);
-    assertThat(results).extracting(InstrumentSearchProjection::getId).doesNotHaveDuplicates();
-    assertThat(results)
-        .filteredOn(result -> result.getId().equals(stockId))
-        .singleElement()
-        .satisfies(result -> {
-          assertThat(result.getTicker()).isEqualTo("TEST");
-          assertThat(result.getName()).isEqualTo("Test stock");
-          assertThat(result.getType()).isEqualTo("ACCIONES");
-          assertThat(result.getLatestPositiveClose()).isEqualByComparingTo("30.00");
-          assertThat(result.getLatestPositiveCloseDate()).isEqualTo(LocalDate.parse("2024-02-01"));
-          assertThat(result.getLatestDatedPreviousClose()).isEqualByComparingTo("50.00");
-        });
-    assertThat(results)
-        .filteredOn(result -> result.getId().equals(currencyId))
-        .singleElement()
-        .satisfies(result -> {
-          assertThat(result.getTicker()).isEqualTo("TSTCUR");
-          assertThat(result.getName()).isEqualTo("Test currency");
-          assertThat(result.getType()).isEqualTo("MONEDA");
-          assertThat(result.getLatestPositiveClose()).isNull();
-          assertThat(result.getLatestPositiveCloseDate()).isNull();
-          assertThat(result.getLatestDatedPreviousClose()).isNull();
-        });
+    assertThat(repository.search("%_", "NAME"))
+        .extracting(InstrumentSearchProjection::getId)
+        .containsExactly(first, second, third);
   }
 
   @Test
-  void ignoresUndatedAndNonPositiveClosesAndReturnsOnlyLatestDatedPreviousClose() {
-    Integer id = insertInstrument("LIMIT", "Test limits", "ACCIONES");
-    insertPrice(id, "2024-01-01", "0", "10");
-    insertPrice(id, "2024-02-01", "-1", "20");
-    insertPrice(id, "2024-02-01", null, "30");
+  void choosesLatestPositiveDatedCloseWithIdTiebreaker() {
+    int id = insertInstrument("PRICE", "Price", "ACCIONES");
+    insertPrice(id, "2024-01-01", "10", "9");
+    insertPrice(id, "2024-02-01", "20", "19");
+    insertPrice(id, "2024-02-01", "30", "29");
+    insertPrice(id, "2024-03-01", "0", "50");
     insertPrice(id, null, "999", "999");
 
-    InstrumentSearchProjection result = projectionFor(id);
-
-    assertThat(result.getLatestPositiveClose()).isNull();
-    assertThat(result.getLatestPositiveCloseDate()).isNull();
-    assertThat(result.getLatestDatedPreviousClose()).isEqualByComparingTo("30");
+    assertThat(repository.search("PRICE", "TICKER"))
+        .singleElement()
+        .satisfies(result -> {
+          assertThat(result.getMarketPrice()).isEqualByComparingTo("30");
+          assertThat(result.getCloseDate()).isEqualTo(LocalDate.parse("2024-02-01"));
+        });
   }
 
   @Test
-  void preservesNullsAndDoesNotUseAnOlderPreviousClose() {
-    Integer id = insertInstrument(null, null, null);
-    insertPrice(id, "2024-01-01", null, "20");
-    insertPrice(id, "2024-02-01", null, null);
+  void usesOnlyPositivePreviousCloseOfLatestDatedRowWithoutDate() {
+    int fallback = insertInstrument("FALLBACK1", "Fallback", "ACCIONES");
+    int unavailable = insertInstrument("FALLBACK2", "Fallback", "ACCIONES");
+    insertPrice(fallback, "2024-01-01", "0", "10");
+    insertPrice(fallback, "2024-02-01", "-1", "20");
+    insertPrice(fallback, "2024-02-01", null, "30");
+    insertPrice(fallback, null, "999", "999");
+    insertPrice(unavailable, "2024-01-01", "0", "10");
+    insertPrice(unavailable, "2024-02-01", null, "-2");
 
-    InstrumentSearchProjection result = projectionFor(id);
-
-    assertThat(result.getTicker()).isNull();
-    assertThat(result.getName()).isNull();
-    assertThat(result.getType()).isNull();
-    assertThat(result.getLatestPositiveClose()).isNull();
-    assertThat(result.getLatestPositiveCloseDate()).isNull();
-    assertThat(result.getLatestDatedPreviousClose()).isNull();
+    assertThat(repository.search("FALLBACK", "TICKER"))
+        .satisfiesExactly(
+            result -> {
+              assertThat(result.getId()).isEqualTo(fallback);
+              assertThat(result.getMarketPrice()).isEqualByComparingTo("30");
+              assertThat(result.getCloseDate()).isNull();
+            },
+            result -> {
+              assertThat(result.getId()).isEqualTo(unavailable);
+              assertThat(result.getMarketPrice()).isNull();
+              assertThat(result.getCloseDate()).isNull();
+            });
   }
 
   @Test
-  void keepsNonPositiveLatestPreviousCloseInsteadOfAnOlderPositiveValue() {
-    Integer id = insertInstrument("NOPRICE", "No usable price", "ACCIONES");
-    insertPrice(id, "2024-01-01", "0", "20");
-    insertPrice(id, "2024-02-01", "-1", "-2");
-
-    InstrumentSearchProjection result = projectionFor(id);
-
-    assertThat(result.getLatestPositiveClose()).isNull();
-    assertThat(result.getLatestPositiveCloseDate()).isNull();
-    assertThat(result.getLatestDatedPreviousClose()).isEqualByComparingTo("-2");
-  }
-
-  @Test
-  void readingCandidatesDoesNotModifyInstrumentsOrdersOrMarketData() {
+  void searchDoesNotModifyInstrumentsOrdersOrMarketData() {
     List<Map<String, Object>> instruments =
         jdbcTemplate.queryForList("SELECT * FROM instruments ORDER BY id");
     List<Map<String, Object>> orders =
@@ -150,7 +116,7 @@ class InstrumentSearchRepositoryIT {
     List<Map<String, Object>> marketData =
         jdbcTemplate.queryForList("SELECT * FROM marketdata ORDER BY id");
 
-    repository.findAllInstrumentSearchCandidates();
+    repository.search("GGAL", "TICKER");
 
     assertThat(jdbcTemplate.queryForList("SELECT * FROM instruments ORDER BY id"))
         .isEqualTo(instruments);
@@ -159,14 +125,7 @@ class InstrumentSearchRepositoryIT {
         .isEqualTo(marketData);
   }
 
-  private InstrumentSearchProjection projectionFor(Integer id) {
-    return repository.findAllInstrumentSearchCandidates().stream()
-        .filter(result -> result.getId().equals(id))
-        .findFirst()
-        .orElseThrow();
-  }
-
-  private Integer insertInstrument(String ticker, String name, String type) {
+  private int insertInstrument(String ticker, String name, String type) {
     return jdbcTemplate.queryForObject(
         "INSERT INTO instruments (ticker, name, type) VALUES (?, ?, ?) RETURNING id",
         Integer.class,
@@ -175,7 +134,7 @@ class InstrumentSearchRepositoryIT {
         type);
   }
 
-  private void insertPrice(Integer instrumentId, String date, String close, String previousClose) {
+  private void insertPrice(int instrumentId, String date, String close, String previousClose) {
     jdbcTemplate.update(
         "INSERT INTO marketdata (instrumentid, date, close, previousclose) VALUES (?, ?, ?, ?)",
         instrumentId,

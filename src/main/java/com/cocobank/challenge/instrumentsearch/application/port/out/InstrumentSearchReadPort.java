@@ -1,9 +1,10 @@
 package com.cocobank.challenge.instrumentsearch.application.port.out;
 
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchCandidate;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchField;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchResult;
 import java.util.List;
 
 public interface InstrumentSearchReadPort {
 
-  List<InstrumentSearchCandidate> findAllInstrumentSearchCandidates();
+  List<InstrumentSearchResult> search(String query, InstrumentSearchField field);
 }

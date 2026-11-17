@@ -7,7 +7,8 @@ import static org.mockito.Mockito.when;
 
 import com.cocobank.challenge.instrumentsearch.adapter.out.persistence.repository.InstrumentSearchProjection;
 import com.cocobank.challenge.instrumentsearch.adapter.out.persistence.repository.InstrumentSearchRepository;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchCandidate;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchField;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchResult;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,44 +28,37 @@ class InstrumentSearchReadAdapterTest {
   @InjectMocks private InstrumentSearchReadAdapter adapter;
 
   @Test
-  void mapsProjectionToCandidate() {
+  void passesSearchCriteriaAndMapsProjectionToResult() {
     LocalDate date = LocalDate.of(2024, 1, 15);
-    when(repository.findAllInstrumentSearchCandidates()).thenReturn(List.of(projection));
+    when(repository.search("test", "TICKER")).thenReturn(List.of(projection));
     when(projection.getId()).thenReturn(7);
     when(projection.getTicker()).thenReturn("TEST");
     when(projection.getName()).thenReturn("Test");
     when(projection.getType()).thenReturn("ACCIONES");
-    when(projection.getLatestPositiveClose()).thenReturn(new BigDecimal("25.50"));
-    when(projection.getLatestPositiveCloseDate()).thenReturn(date);
-    when(projection.getLatestDatedPreviousClose()).thenReturn(new BigDecimal("20.00"));
+    when(projection.getMarketPrice()).thenReturn(new BigDecimal("25.50"));
+    when(projection.getCloseDate()).thenReturn(date);
 
-    assertThat(adapter.findAllInstrumentSearchCandidates())
+    assertThat(adapter.search("test", InstrumentSearchField.TICKER))
         .containsExactly(
-            new InstrumentSearchCandidate(
-                7,
-                "TEST",
-                "Test",
-                "ACCIONES",
-                new BigDecimal("25.50"),
-                date,
-                new BigDecimal("20.00")));
-    verify(repository).findAllInstrumentSearchCandidates();
+            new InstrumentSearchResult(
+                7, "TEST", "Test", "ACCIONES", new BigDecimal("25.50"), date));
+    verify(repository).search("test", "TICKER");
   }
 
   @Test
   void propagatesReadFailures() {
     DataAccessResourceFailureException failure =
         new DataAccessResourceFailureException("database unavailable");
-    when(repository.findAllInstrumentSearchCandidates()).thenThrow(failure);
+    when(repository.search("test", "NAME")).thenThrow(failure);
 
-    assertThatThrownBy(() -> adapter.findAllInstrumentSearchCandidates()).isSameAs(failure);
+    assertThatThrownBy(() -> adapter.search("test", InstrumentSearchField.NAME)).isSameAs(failure);
   }
 
   @Test
   void declaresReadOnlyTransaction() throws NoSuchMethodException {
     Transactional transaction =
         InstrumentSearchReadAdapter.class
-            .getMethod("findAllInstrumentSearchCandidates")
+            .getMethod("search", String.class, InstrumentSearchField.class)
             .getAnnotation(Transactional.class);
     assertThat(transaction).isNotNull();
     assertThat(transaction.readOnly()).isTrue();

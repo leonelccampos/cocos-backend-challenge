@@ -1,6 +1,6 @@
 package com.cocobank.challenge.instrumentsearch.adapter.in.rest.representation;
 
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchResult;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchResult;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;

@@ -2,8 +2,9 @@ package com.cocobank.challenge.instrumentsearch.adapter.out.persistence.adapter;
 
 import com.cocobank.challenge.instrumentsearch.adapter.out.persistence.repository.InstrumentSearchProjection;
 import com.cocobank.challenge.instrumentsearch.adapter.out.persistence.repository.InstrumentSearchRepository;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchField;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchResult;
 import com.cocobank.challenge.instrumentsearch.application.port.out.InstrumentSearchReadPort;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchCandidate;
 import java.util.List;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,20 +20,19 @@ public class InstrumentSearchReadAdapter implements InstrumentSearchReadPort {
 
   @Override
   @Transactional(readOnly = true)
-  public List<InstrumentSearchCandidate> findAllInstrumentSearchCandidates() {
-    return repository.findAllInstrumentSearchCandidates().stream()
-        .map(InstrumentSearchReadAdapter::toCandidate)
+  public List<InstrumentSearchResult> search(String query, InstrumentSearchField field) {
+    return repository.search(query, field.name()).stream()
+        .map(InstrumentSearchReadAdapter::toResult)
         .toList();
   }
 
-  private static InstrumentSearchCandidate toCandidate(InstrumentSearchProjection projection) {
-    return new InstrumentSearchCandidate(
+  private static InstrumentSearchResult toResult(InstrumentSearchProjection projection) {
+    return new InstrumentSearchResult(
         projection.getId(),
         projection.getTicker(),
         projection.getName(),
         projection.getType(),
-        projection.getLatestPositiveClose(),
-        projection.getLatestPositiveCloseDate(),
-        projection.getLatestDatedPreviousClose());
+        projection.getMarketPrice(),
+        projection.getCloseDate());
   }
 }

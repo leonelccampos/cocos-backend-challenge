@@ -2,8 +2,8 @@ package com.cocobank.challenge.instrumentsearch.adapter.in.rest.controller;
 
 import com.cocobank.challenge.instrumentsearch.adapter.in.rest.representation.InstrumentSearchRequest;
 import com.cocobank.challenge.instrumentsearch.adapter.in.rest.representation.InstrumentSearchResponse;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchField;
 import com.cocobank.challenge.instrumentsearch.application.usecase.SearchInstrumentsUseCase;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchField;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

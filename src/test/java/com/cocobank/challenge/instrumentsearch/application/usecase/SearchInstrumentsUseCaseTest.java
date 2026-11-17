@@ -5,11 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchField;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchResult;
 import com.cocobank.challenge.instrumentsearch.application.exception.InstrumentSearchNotFoundException;
 import com.cocobank.challenge.instrumentsearch.application.port.out.InstrumentSearchReadPort;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchCandidate;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchField;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchResult;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -32,40 +31,35 @@ class SearchInstrumentsUseCaseTest {
   }
 
   @Test
-  void readsCandidatesAndReturnsMatchingStocksWithTheirPricesInOrder() {
+  void trimsQueryAndReturnsSearchResults() {
     LocalDate date = LocalDate.of(2026, 1, 15);
-    when(readPort.findAllInstrumentSearchCandidates())
+    when(readPort.search("CAMION", InstrumentSearchField.NAME))
         .thenReturn(
             List.of(
-                new InstrumentSearchCandidate(2, "ZZZ", "Camión", "ACCIONES", null, null, null),
-                new InstrumentSearchCandidate(
-                    1, "AAA", "Camion", "ACCIONES", new BigDecimal("25.50"), date, null),
-                new InstrumentSearchCandidate(3, "BBB", "Camion", "MONEDA", null, null, null),
-                new InstrumentSearchCandidate(4, "CCC", "Other", "ACCIONES", null, null, null)));
+                new InstrumentSearchResult(
+                    1, "AAA", "Camion", "ACCIONES", new BigDecimal("25.50"), date),
+                new InstrumentSearchResult(2, "ZZZ", "Camión", "ACCIONES", null, null)));
 
     assertThat(useCase.execute("  CAMION ", InstrumentSearchField.NAME))
         .containsExactly(
             new InstrumentSearchResult(
                 1, "AAA", "Camion", "ACCIONES", new BigDecimal("25.50"), date),
             new InstrumentSearchResult(2, "ZZZ", "Camión", "ACCIONES", null, null));
-    verify(readPort).findAllInstrumentSearchCandidates();
+    verify(readPort).search("CAMION", InstrumentSearchField.NAME);
   }
 
   @Test
   void throwsNotFoundWhenCandidatesDoNotMatchSelectedField() {
-    when(readPort.findAllInstrumentSearchCandidates())
-        .thenReturn(
-            List.of(
-                new InstrumentSearchCandidate(1, "AAA", "Match", "ACCIONES", null, null, null)));
+    when(readPort.search("match", InstrumentSearchField.TICKER)).thenReturn(List.of());
 
     assertThatThrownBy(() -> useCase.execute("match", InstrumentSearchField.TICKER))
         .isInstanceOf(InstrumentSearchNotFoundException.class);
-    verify(readPort).findAllInstrumentSearchCandidates();
+    verify(readPort).search("match", InstrumentSearchField.TICKER);
   }
 
   @Test
   void throwsNotFoundWhenCatalogIsEmpty() {
-    when(readPort.findAllInstrumentSearchCandidates()).thenReturn(List.of());
+    when(readPort.search("anything", InstrumentSearchField.NAME)).thenReturn(List.of());
 
     assertThatThrownBy(() -> useCase.execute("anything", InstrumentSearchField.NAME))
         .isInstanceOf(InstrumentSearchNotFoundException.class);
@@ -74,10 +68,10 @@ class SearchInstrumentsUseCaseTest {
   @Test
   void propagatesReadErrors() {
     IllegalStateException failure = new IllegalStateException("read failure");
-    when(readPort.findAllInstrumentSearchCandidates()).thenThrow(failure);
+    when(readPort.search("abc", InstrumentSearchField.TICKER)).thenThrow(failure);
 
     assertThatThrownBy(() -> useCase.execute("abc", InstrumentSearchField.TICKER))
         .isSameAs(failure);
-    verify(readPort).findAllInstrumentSearchCandidates();
+    verify(readPort).search("abc", InstrumentSearchField.TICKER);
   }
 }

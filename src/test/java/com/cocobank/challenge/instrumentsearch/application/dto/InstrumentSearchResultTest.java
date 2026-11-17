@@ -1,4 +1,4 @@
-package com.cocobank.challenge.instrumentsearch.domain;
+package com.cocobank.challenge.instrumentsearch.application.dto;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

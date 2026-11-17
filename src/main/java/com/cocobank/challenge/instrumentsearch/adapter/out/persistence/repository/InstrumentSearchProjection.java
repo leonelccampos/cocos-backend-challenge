@@ -13,9 +13,7 @@ public interface InstrumentSearchProjection {
 
   String getType();
 
-  BigDecimal getLatestPositiveClose();
+  BigDecimal getMarketPrice();
 
-  LocalDate getLatestPositiveCloseDate();
-
-  BigDecimal getLatestDatedPreviousClose();
+  LocalDate getCloseDate();
 }

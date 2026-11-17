@@ -9,10 +9,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchField;
+import com.cocobank.challenge.instrumentsearch.application.dto.InstrumentSearchResult;
 import com.cocobank.challenge.instrumentsearch.application.exception.InstrumentSearchNotFoundException;
 import com.cocobank.challenge.instrumentsearch.application.usecase.SearchInstrumentsUseCase;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchField;
-import com.cocobank.challenge.instrumentsearch.domain.InstrumentSearchResult;
 import com.cocobank.challenge.portfolio.adapter.in.rest.controller.PortfolioExceptionHandler;
 import java.math.BigDecimal;
 import java.time.LocalDate;
