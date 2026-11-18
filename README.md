@@ -137,5 +137,4 @@ base local).
 
 ## Estado
 
-Portfolio, búsqueda y envío de órdenes implementados según sus specs. La autenticación no
-está implementada por estar fuera de alcance.
+Portfolio, búsqueda y envío de órdenes implementados según sus specs.
