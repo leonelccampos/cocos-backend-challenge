@@ -74,6 +74,30 @@ class OrderControllerIT {
   }
 
   @Test
+  void replayingACreationAfterItsOrderWasCancelledReturnsTheOriginalCreationResult()
+      throws Exception {
+    int instrumentId = createInstrument("ACCIONES", "ORD-RPC");
+    int userId = createUserWithCash(100);
+    String body = orderBody(instrumentId, "BUY", "LIMIT", "\"size\":1", "\"price\":10.00");
+
+    HttpResponse<String> created = submit(userId, "replay-after-cancel", body);
+    int orderId = mapper.readTree(created.body()).path("id").asInt();
+    HttpResponse<String> cancelled = cancel(userId, orderId, "{\"status\":\"CANCELLED\"}");
+    HttpResponse<String> replay = submit(userId, "replay-after-cancel", body);
+
+    assertThat(created.statusCode()).isEqualTo(201);
+    assertThat(cancelled.statusCode()).isEqualTo(200);
+    assertThat(replay.statusCode()).isEqualTo(201);
+    assertThat(replay.body()).isEqualTo(created.body());
+    assertThat(mapper.readTree(replay.body()).path("status").asText()).isEqualTo("NEW");
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT status FROM orders WHERE id = ?", String.class, orderId))
+        .isEqualTo("CANCELLED");
+    assertThat(countOrders(userId)).isEqualTo(1 + 1);
+  }
+
+  @Test
   void persistsRejectedMarketOrderAndReplaysIts422WithoutRecalculation() throws Exception {
     int userId = createUserWithCash(50);
     int instrumentId = createInstrument("ACCIONES", "ORD-RJC");
@@ -108,6 +132,22 @@ class OrderControllerIT {
 
     assertThat(response.statusCode()).isEqualTo(422);
     assertThat(mapper.readTree(response.body()).at("/order/size").isNull()).isTrue();
+    assertThat(mapper.readTree(response.body()).at("/order/price").isNull()).isTrue();
+  }
+
+  @Test
+  void rejectsMarketSizeWithoutCloseConservingTheRequestedSize() throws Exception {
+    int userId = createUserWithCash(1_000);
+    int instrumentId = createInstrument("ACCIONES", "NO-PRC2");
+
+    HttpResponse<String> response =
+        submit(
+            userId,
+            "no-close-size-key",
+            orderBody(instrumentId, "BUY", "MARKET", "\"size\":5", null));
+
+    assertThat(response.statusCode()).isEqualTo(422);
+    assertThat(mapper.readTree(response.body()).at("/order/size").asInt()).isEqualTo(5);
     assertThat(mapper.readTree(response.body()).at("/order/price").isNull()).isTrue();
   }
 
@@ -300,6 +340,211 @@ class OrderControllerIT {
         .contains("\"201\"", "\"400\"", "\"404\"", "\"409\"", "\"422\"");
   }
 
+  @Test
+  void documentsCancelOrderContractInOpenApi() throws Exception {
+    HttpRequest request =
+        HttpRequest.newBuilder()
+            .uri(URI.create("http://localhost:" + port + "/v3/api-docs"))
+            .GET()
+            .build();
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    JsonNode operation =
+        mapper
+            .readTree(response.body())
+            .path("paths")
+            .path("/api/v1/users/{userId}/orders/{orderId}")
+            .path("patch");
+    assertThat(operation.isMissingNode()).isFalse();
+    assertThat(operation.path("responses").toString())
+        .contains("\"200\"", "\"400\"", "\"404\"", "\"409\"");
+  }
+
+  @Test
+  void cancellingALimitBuyOrderReleasesItsCashReservation() throws Exception {
+    int userId = createUserWithCash(100);
+    int instrumentId = createInstrument("ACCIONES", "ORD-CNB");
+    HttpResponse<String> created =
+        submit(
+            userId,
+            "cancel-cash-a",
+            orderBody(instrumentId, "BUY", "LIMIT", "\"size\":5", "\"price\":10"));
+    int orderId = mapper.readTree(created.body()).path("id").asInt();
+    HttpResponse<String> blocked =
+        submit(
+            userId,
+            "cancel-cash-b",
+            orderBody(instrumentId, "BUY", "LIMIT", "\"size\":6", "\"price\":10"));
+
+    HttpResponse<String> cancelled = cancel(userId, orderId, "{\"status\":\"CANCELLED\"}");
+    HttpResponse<String> retried =
+        submit(
+            userId,
+            "cancel-cash-c",
+            orderBody(instrumentId, "BUY", "LIMIT", "\"size\":6", "\"price\":10"));
+
+    assertThat(created.statusCode()).isEqualTo(201);
+    assertThat(blocked.statusCode()).isEqualTo(422);
+    assertThat(cancelled.statusCode()).isEqualTo(200);
+    assertThat(mapper.readTree(cancelled.body()).path("status").asText()).isEqualTo("CANCELLED");
+    assertThat(retried.statusCode()).isEqualTo(201);
+  }
+
+  @Test
+  void cancellingALimitSellOrderReleasesItsShareReservation() throws Exception {
+    int userId = createUserWithCash(100);
+    int instrumentId = createInstrument("ACCIONES", "ORD-CNS");
+    jdbcTemplate.update(
+        "INSERT INTO orders (instrumentid, userid, size, price, type, side, status, datetime)"
+            + " VALUES (?, ?, 5, 10, 'MARKET', 'BUY', 'FILLED', '2026-01-01')",
+        instrumentId,
+        userId);
+    HttpResponse<String> created =
+        submit(
+            userId,
+            "cancel-shares-a",
+            orderBody(instrumentId, "SELL", "LIMIT", "\"size\":5", "\"price\":12"));
+    int orderId = mapper.readTree(created.body()).path("id").asInt();
+    HttpResponse<String> blocked =
+        submit(
+            userId,
+            "cancel-shares-b",
+            orderBody(instrumentId, "SELL", "LIMIT", "\"size\":1", "\"price\":12"));
+
+    HttpResponse<String> cancelled = cancel(userId, orderId, "{\"status\":\"CANCELLED\"}");
+    HttpResponse<String> retried =
+        submit(
+            userId,
+            "cancel-shares-c",
+            orderBody(instrumentId, "SELL", "LIMIT", "\"size\":1", "\"price\":12"));
+
+    assertThat(created.statusCode()).isEqualTo(201);
+    assertThat(blocked.statusCode()).isEqualTo(422);
+    assertThat(cancelled.statusCode()).isEqualTo(200);
+    assertThat(retried.statusCode()).isEqualTo(201);
+  }
+
+  @Test
+  void rejectsCancellingAnOrderThatIsNotNewAndKeepsItsEffects() throws Exception {
+    int userId = createUserWithCash(100);
+    int instrumentId = createInstrument("ACCIONES", "ORD-CNF");
+    jdbcTemplate.update(
+        "INSERT INTO marketdata (instrumentid, date, close) VALUES (?, CURRENT_DATE, 10)",
+        instrumentId);
+    HttpResponse<String> filled =
+        submit(
+            userId, "cancel-filled", orderBody(instrumentId, "BUY", "MARKET", "\"size\":1", null));
+    int filledOrderId = mapper.readTree(filled.body()).path("id").asInt();
+
+    HttpResponse<String> conflict = cancel(userId, filledOrderId, "{\"status\":\"CANCELLED\"}");
+
+    assertThat(conflict.statusCode()).isEqualTo(409);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT status FROM orders WHERE id = ?", String.class, filledOrderId))
+        .isEqualTo("FILLED");
+  }
+
+  @Test
+  void rejectsRepeatedCancellationOfAnAlreadyCancelledOrder() throws Exception {
+    int userId = createUserWithCash(100);
+    int instrumentId = createInstrument("ACCIONES", "ORD-CNR");
+    HttpResponse<String> created =
+        submit(
+            userId,
+            "cancel-repeat",
+            orderBody(instrumentId, "BUY", "LIMIT", "\"size\":1", "\"price\":10"));
+    int orderId = mapper.readTree(created.body()).path("id").asInt();
+
+    HttpResponse<String> first = cancel(userId, orderId, "{\"status\":\"CANCELLED\"}");
+    HttpResponse<String> second = cancel(userId, orderId, "{\"status\":\"CANCELLED\"}");
+
+    assertThat(first.statusCode()).isEqualTo(200);
+    assertThat(second.statusCode()).isEqualTo(409);
+  }
+
+  @Test
+  void rejectsCancellingAMissingOrderOrOneFromAnotherUser() throws Exception {
+    int userId = createUserWithCash(100);
+    int otherUserId = createUserWithCash(100);
+    int instrumentId = createInstrument("ACCIONES", "ORD-CNO");
+    HttpResponse<String> created =
+        submit(
+            otherUserId,
+            "cancel-foreign",
+            orderBody(instrumentId, "BUY", "LIMIT", "\"size\":1", "\"price\":10"));
+    int otherUsersOrderId = mapper.readTree(created.body()).path("id").asInt();
+
+    HttpResponse<String> missing = cancel(userId, 999_999, "{\"status\":\"CANCELLED\"}");
+    HttpResponse<String> foreign = cancel(userId, otherUsersOrderId, "{\"status\":\"CANCELLED\"}");
+
+    assertThat(missing.statusCode()).isEqualTo(404);
+    assertThat(foreign.statusCode()).isEqualTo(404);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT status FROM orders WHERE id = ?", String.class, otherUsersOrderId))
+        .isEqualTo("NEW");
+  }
+
+  @Test
+  void rejectsCancelRequestWithMissingOrInvalidStatusWithoutTouchingTheOrder() throws Exception {
+    int userId = createUserWithCash(100);
+    int instrumentId = createInstrument("ACCIONES", "ORD-CNI");
+    HttpResponse<String> created =
+        submit(
+            userId,
+            "cancel-invalid",
+            orderBody(instrumentId, "BUY", "LIMIT", "\"size\":1", "\"price\":10"));
+    int orderId = mapper.readTree(created.body()).path("id").asInt();
+
+    HttpResponse<String> missingStatus = cancel(userId, orderId, "{}");
+    HttpResponse<String> wrongStatus = cancel(userId, orderId, "{\"status\":\"NEW\"}");
+
+    assertThat(missingStatus.statusCode()).isEqualTo(400);
+    assertThat(wrongStatus.statusCode()).isEqualTo(400);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT status FROM orders WHERE id = ?", String.class, orderId))
+        .isEqualTo("NEW");
+  }
+
+  @Test
+  void serializesCreationAndCancellationForTheSameUser() throws Exception {
+    int userId = createUserWithCash(100);
+    int instrumentId = createInstrument("ACCIONES", "ORD-CNC2");
+    HttpResponse<String> created =
+        submit(
+            userId,
+            "race-original",
+            orderBody(instrumentId, "BUY", "LIMIT", "\"size\":10", "\"price\":10"));
+    int orderId = mapper.readTree(created.body()).path("id").asInt();
+    String competingBody = orderBody(instrumentId, "BUY", "LIMIT", "\"size\":10", "\"price\":10");
+
+    CompletableFuture<HttpResponse<String>> cancelFuture =
+        CompletableFuture.supplyAsync(
+            () -> uncheckedCancel(userId, orderId, "{\"status\":\"CANCELLED\"}"));
+    CompletableFuture<HttpResponse<String>> submitFuture =
+        CompletableFuture.supplyAsync(
+            () -> uncheckedSubmit(userId, "race-competing", competingBody));
+
+    HttpResponse<String> cancelResponse = cancelFuture.join();
+    HttpResponse<String> submitResponse = submitFuture.join();
+
+    assertThat(cancelResponse.statusCode()).isEqualTo(200);
+    assertThat(submitResponse.statusCode()).isIn(201, 422);
+    int newCount =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM orders WHERE userid = ? AND side = 'BUY' AND status = 'NEW'",
+            Integer.class,
+            userId);
+    assertThat(newCount).isLessThanOrEqualTo(1);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT status FROM orders WHERE id = ?", String.class, orderId))
+        .isEqualTo("CANCELLED");
+  }
+
   private HttpResponse<String> submit(int userId, String key, String body) throws Exception {
     HttpRequest request =
         HttpRequest.newBuilder()
@@ -314,6 +559,26 @@ class OrderControllerIT {
   private HttpResponse<String> uncheckedSubmit(int userId, String key, String body) {
     try {
       return submit(userId, key, body);
+    } catch (Exception exception) {
+      throw new IllegalStateException(exception);
+    }
+  }
+
+  private HttpResponse<String> cancel(int userId, int orderId, String body) throws Exception {
+    HttpRequest request =
+        HttpRequest.newBuilder()
+            .uri(
+                URI.create(
+                    "http://localhost:" + port + "/api/v1/users/" + userId + "/orders/" + orderId))
+            .header("Content-Type", "application/json")
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
+            .build();
+    return client.send(request, HttpResponse.BodyHandlers.ofString());
+  }
+
+  private HttpResponse<String> uncheckedCancel(int userId, int orderId, String body) {
+    try {
+      return cancel(userId, orderId, body);
     } catch (Exception exception) {
       throw new IllegalStateException(exception);
     }

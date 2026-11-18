@@ -23,6 +23,14 @@ public record Order(
     Objects.requireNonNull(status, "status");
   }
 
+  public Order cancel() {
+    if (status != OrderStatus.NEW) {
+      throw new OrderNotCancellableException(status);
+    }
+    return new Order(
+        id, userId, instrumentId, side, type, size, price, OrderStatus.CANCELLED, datetime);
+  }
+
   public boolean affectsExecutedPortfolio() {
     return status == OrderStatus.FILLED && (side == OrderSide.BUY || side == OrderSide.SELL);
   }

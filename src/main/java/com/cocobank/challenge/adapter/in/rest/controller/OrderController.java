@@ -1,11 +1,15 @@
 package com.cocobank.challenge.adapter.in.rest.controller;
 
+import com.cocobank.challenge.adapter.in.rest.representation.CancelOrderRequest;
 import com.cocobank.challenge.adapter.in.rest.representation.OrderResponse;
 import com.cocobank.challenge.adapter.in.rest.representation.SubmitOrderRequest;
+import com.cocobank.challenge.application.dto.CancelOrderCommand;
 import com.cocobank.challenge.application.dto.OrderSubmissionResult;
 import com.cocobank.challenge.application.dto.SubmitOrderCommand;
 import com.cocobank.challenge.application.exception.OrderBadRequestException;
+import com.cocobank.challenge.application.usecase.CancelOrderUseCase;
 import com.cocobank.challenge.application.usecase.SubmitOrderUseCase;
+import com.cocobank.challenge.domain.order.Order;
 import com.cocobank.challenge.domain.order.OrderRejectionReason;
 import com.cocobank.challenge.domain.order.OrderSide;
 import com.cocobank.challenge.domain.order.OrderType;
@@ -21,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,9 +41,12 @@ public class OrderController {
   private static final Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
 
   private final SubmitOrderUseCase submitOrderUseCase;
+  private final CancelOrderUseCase cancelOrderUseCase;
 
-  public OrderController(SubmitOrderUseCase submitOrderUseCase) {
+  public OrderController(
+      SubmitOrderUseCase submitOrderUseCase, CancelOrderUseCase cancelOrderUseCase) {
     this.submitOrderUseCase = submitOrderUseCase;
+    this.cancelOrderUseCase = cancelOrderUseCase;
   }
 
   @PostMapping("/{userId}/orders")
@@ -75,6 +83,25 @@ public class OrderController {
     }
     LOGGER.info("orders.request.completed operation=CREATE_ORDER http_status=201");
     return ResponseEntity.status(HttpStatus.CREATED).body(order);
+  }
+
+  @PatchMapping("/{userId}/orders/{orderId}")
+  @Operation(summary = "Cancelar una orden pendiente")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "Orden cancelada"),
+    @ApiResponse(responseCode = "400", description = "Solicitud inválida"),
+    @ApiResponse(responseCode = "404", description = "Usuario u orden no encontrados"),
+    @ApiResponse(responseCode = "409", description = "La orden no puede cancelarse")
+  })
+  public ResponseEntity<OrderResponse> cancelOrder(
+      @PathVariable @Positive int userId,
+      @PathVariable @Positive int orderId,
+      @Valid @RequestBody CancelOrderRequest request) {
+
+    Order order =
+        cancelOrderUseCase.execute(new CancelOrderCommand(userId, orderId, request.status()));
+    LOGGER.info("orders.request.completed operation=CANCEL_ORDER http_status=200");
+    return ResponseEntity.ok(OrderResponse.from(order));
   }
 
   private ProblemDetail rejected(OrderSubmissionResult result, OrderResponse order) {

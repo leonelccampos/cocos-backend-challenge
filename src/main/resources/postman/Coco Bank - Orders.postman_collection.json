@@ -2,14 +2,26 @@
   "info": {
     "_postman_id": "fbc7df6c-1ad6-4f0c-9f6d-9e3b83a4ebd1",
     "name": "Coco Bank - Orders",
-    "description": "Casos HTTP para T01: envío, rechazo, replay y conflicto de órdenes. No usa autenticación. Debe existir un usuario con fondos disponibles y un instrumento ACCIONES con cotización.",
+    "description": "Casos HTTP para T01 y T02: envío, rechazo, replay y conflicto de creación; cancelación, repetición de cancelación y liberación de reservas. No usa autenticación. Debe existir un usuario con fondos disponibles y un instrumento ACCIONES con cotización.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8080" },
-    { "key": "userId", "value": "1" },
-    { "key": "instrumentId", "value": "31" },
-    { "key": "idempotencyKey", "value": "submit-order-manual-001" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "userId",
+      "value": "1"
+    },
+    {
+      "key": "instrumentId",
+      "value": "31"
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "submit-order-manual-001"
+    }
   ],
   "item": [
     {
@@ -17,8 +29,14 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
         ],
         "body": {
           "mode": "raw",
@@ -34,7 +52,8 @@
             "exec": [
               "pm.test('acepta la orden una sola vez', () => pm.response.to.have.status(201));",
               "pm.test('devuelve NEW', () => pm.expect(pm.response.json().status).to.eql('NEW'));",
-              "pm.test('no devuelve amount', () => pm.expect(pm.response.json()).not.to.have.property('amount'));"
+              "pm.test('no devuelve amount', () => pm.expect(pm.response.json()).not.to.have.property('amount'));",
+              "pm.collectionVariables.set('pendingOrderId', pm.response.json().id);"
             ]
           }
         }
@@ -45,8 +64,14 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
         ],
         "body": {
           "mode": "raw",
@@ -67,12 +92,75 @@
       ]
     },
     {
+      "name": "Cancelar orden NEW — esperado 200",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"CANCELLED\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders/{{pendingOrderId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('cancela la orden pendiente', () => pm.response.to.have.status(200));",
+              "pm.test('devuelve CANCELLED', () => pm.expect(pm.response.json().status).to.eql('CANCELLED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Repetir cancelación — esperado 409",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"CANCELLED\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders/{{pendingOrderId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('una orden ya cancelada no puede recancelarse', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Reutilizar clave con otros datos — esperado 409",
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
         ],
         "body": {
           "mode": "raw",
@@ -97,8 +185,14 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Idempotency-Key", "value": "rejected-{{idempotencyKey}}" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "rejected-{{idempotencyKey}}"
+          }
         ],
         "body": {
           "mode": "raw",

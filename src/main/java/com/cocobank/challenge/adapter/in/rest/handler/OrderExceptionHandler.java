@@ -4,6 +4,7 @@ import com.cocobank.challenge.adapter.in.rest.controller.OrderController;
 import com.cocobank.challenge.application.exception.IdempotencyConflictException;
 import com.cocobank.challenge.application.exception.OrderBadRequestException;
 import com.cocobank.challenge.application.exception.OrderNotFoundException;
+import com.cocobank.challenge.domain.order.OrderNotCancellableException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,11 @@ public class OrderExceptionHandler {
   @ExceptionHandler(IdempotencyConflictException.class)
   public ResponseEntity<ProblemDetail> conflict(IdempotencyConflictException exception) {
     return response(HttpStatus.CONFLICT, "Conflicto de idempotencia", exception.getMessage());
+  }
+
+  @ExceptionHandler(OrderNotCancellableException.class)
+  public ResponseEntity<ProblemDetail> notCancellable(OrderNotCancellableException exception) {
+    return response(HttpStatus.CONFLICT, "Orden no cancelable", exception.getMessage());
   }
 
   @ExceptionHandler({

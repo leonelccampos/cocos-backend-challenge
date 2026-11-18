@@ -181,7 +181,7 @@ public class SubmitOrderUseCase {
         command,
         fingerprint,
         OrderSubmissionResult.rejected(
-            save(command, null, null, OrderStatus.REJECTED),
+            save(command, command.size(), null, OrderStatus.REJECTED),
             OrderRejectionReason.MARKET_PRICE_UNAVAILABLE));
   }
 

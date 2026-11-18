@@ -53,6 +53,10 @@ public class OrderEntity {
     return new OrderEntity(data);
   }
 
+  public void cancel() {
+    this.status = OrderStatus.CANCELLED.name();
+  }
+
   public Order toDomain() {
     if (id == null || userId == null || instrumentId == null) {
       throw new InvalidOrderDataException("Order is missing an identifier");

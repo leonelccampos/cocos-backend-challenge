@@ -122,6 +122,18 @@ class SubmitOrderUseCaseTest {
   }
 
   @Test
+  void rejectsMarketSizeWithoutCloseConservingTheRequestedSize() {
+    when(marketDataPort.lastMarketData(31)).thenReturn(Optional.empty());
+
+    var result = useCase.execute(command(OrderType.MARKET, 5, null, null));
+
+    assertThat(result.order().size()).isEqualTo(5);
+    assertThat(result.order().price()).isNull();
+    assertThat(result.rejectionReason()).isEqualTo(OrderRejectionReason.MARKET_PRICE_UNAVAILABLE);
+    verify(orderPort, never()).findByUserId(1);
+  }
+
+  @Test
   void validatesAtLeastOneWholeShareBeforeSolvency() {
     when(marketDataPort.lastMarketData(31))
         .thenReturn(Optional.of(marketData(new BigDecimal("100.00"))));

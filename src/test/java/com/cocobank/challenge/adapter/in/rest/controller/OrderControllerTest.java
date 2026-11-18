@@ -3,6 +3,7 @@ package com.cocobank.challenge.adapter.in.rest.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -10,8 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.cocobank.challenge.adapter.in.rest.handler.OrderExceptionHandler;
 import com.cocobank.challenge.application.dto.OrderSubmissionResult;
 import com.cocobank.challenge.application.exception.IdempotencyConflictException;
+import com.cocobank.challenge.application.exception.OrderNotFoundException;
+import com.cocobank.challenge.application.usecase.CancelOrderUseCase;
 import com.cocobank.challenge.application.usecase.SubmitOrderUseCase;
 import com.cocobank.challenge.domain.order.Order;
+import com.cocobank.challenge.domain.order.OrderNotCancellableException;
 import com.cocobank.challenge.domain.order.OrderRejectionReason;
 import com.cocobank.challenge.domain.order.OrderSide;
 import com.cocobank.challenge.domain.order.OrderStatus;
@@ -35,6 +39,7 @@ import org.springframework.validation.beanvalidation.MethodValidationInterceptor
 class OrderControllerTest {
 
   @Mock private SubmitOrderUseCase useCase;
+  @Mock private CancelOrderUseCase cancelOrderUseCase;
 
   private MockMvc mockMvc;
   private LocalValidatorFactoryBean validator;
@@ -43,7 +48,7 @@ class OrderControllerTest {
   void setUp() {
     validator = new LocalValidatorFactoryBean();
     validator.afterPropertiesSet();
-    ProxyFactory proxy = new ProxyFactory(new OrderController(useCase));
+    ProxyFactory proxy = new ProxyFactory(new OrderController(useCase, cancelOrderUseCase));
     proxy.setProxyTargetClass(true);
     proxy.addAdvice(new MethodValidationInterceptor(validator.getValidator()));
     mockMvc =
@@ -134,6 +139,79 @@ class OrderControllerTest {
                 .content(
                     """
                     {"instrumentId":31,"side":"BUY","type":"MARKET","size":2}
+                    """))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void returnsCancelledOrder() throws Exception {
+    Order cancelled = order(OrderStatus.NEW);
+    Order result =
+        new Order(
+            cancelled.id(),
+            cancelled.userId(),
+            cancelled.instrumentId(),
+            cancelled.side(),
+            cancelled.type(),
+            cancelled.size(),
+            cancelled.price(),
+            OrderStatus.CANCELLED,
+            cancelled.datetime());
+    when(cancelOrderUseCase.execute(any())).thenReturn(result);
+
+    mockMvc
+        .perform(
+            patch("/api/v1/users/1/orders/41")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"status":"CANCELLED"}
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(41))
+        .andExpect(jsonPath("$.status").value("CANCELLED"));
+  }
+
+  @Test
+  void rejectsCancelRequestWithMissingStatus() throws Exception {
+    mockMvc
+        .perform(
+            patch("/api/v1/users/1/orders/41")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(cancelOrderUseCase);
+  }
+
+  @Test
+  void mapsOrderNotFoundToNotFoundStatus() throws Exception {
+    when(cancelOrderUseCase.execute(any()))
+        .thenThrow(new OrderNotFoundException("No se encontró la orden solicitada."));
+
+    mockMvc
+        .perform(
+            patch("/api/v1/users/1/orders/41")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"status":"CANCELLED"}
+                    """))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void mapsOrderNotCancellableToConflictStatus() throws Exception {
+    when(cancelOrderUseCase.execute(any()))
+        .thenThrow(new OrderNotCancellableException(OrderStatus.FILLED));
+
+    mockMvc
+        .perform(
+            patch("/api/v1/users/1/orders/41")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"status":"CANCELLED"}
                     """))
         .andExpect(status().isConflict());
   }

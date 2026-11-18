@@ -45,7 +45,7 @@ siendo obligatorios aunque no se repitan aquí.
 
 ## T02 — Cancelar una orden
 
-- [ ] **T02.1 — Implementar la cancelación y liberación de reservas.**
+- [x] **T02.1 — Implementar la cancelación y liberación de reservas.**
   - **Depende de:** T01.1 y T01.2.
   - **RF:** órdenes RF-5, RF-6 y RF-8; portfolio RF-2 y RF-3.
   - **Hecho cuando:** bajo el mismo bloqueo por usuario y transacción de escritura,
@@ -57,7 +57,7 @@ siendo obligatorios aunque no se repitan aquí.
     compras y ventas, estados no cancelables, asociación y concurrencia entre
     creación y cancelación.
 
-- [ ] **T02.2 — Exponer y verificar `PATCH /api/v1/users/{userId}/orders/{orderId}`.**
+- [x] **T02.2 — Exponer y verificar `PATCH /api/v1/users/{userId}/orders/{orderId}`.**
   - **Depende de:** T02.1.
   - **RF:** órdenes RF-8 y RF-9.
   - **Hecho cuando:** el endpoint exige `status: CANCELLED`, no requiere autenticación
@@ -66,7 +66,7 @@ siendo obligatorios aunque no se repitan aquí.
   - **Verificación:** MockMvc e integración HTTP con PostgreSQL; comprobar en Postman
     cancelación, repetición y liberación de reservas mediante el portfolio.
 
-- [ ] **T02.3 — Verificar la iniciativa completa.**
+- [x] **T02.3 — Verificar la iniciativa completa.**
   - **Depende de:** T01.3 y T02.2.
   - **RF:** órdenes RF-1–RF-9; portfolio RF-2 y RF-3.
   - **Hecho cuando:** el replay de una creación tras cancelar devuelve la respuesta

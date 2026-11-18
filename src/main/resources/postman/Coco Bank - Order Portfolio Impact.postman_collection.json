@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "9d7a2b6e-9e3e-4b8c-8e60-4a1a6a7d9a10",
     "name": "Coco Bank - Order Portfolio Impact",
-    "description": "Casos manuales que combinan el envío de órdenes con la consulta de portfolio para verificar cómo cada estado de orden afecta el saldo disponible, el total de cuenta y las tenencias. Ejecutar en secuencia (de arriba hacia abajo) contra la aplicación local encendida. Usa la cuenta de referencia userId=1/accountNumber=10001; como las órdenes aceptadas se persisten, cada corrida modifica el estado real de esa cuenta en la base local — no ejecutar contra una base compartida. Cada solicitud de orden usa una clave de idempotencia dinámica ({{$randomUUID}}) para que la colección se pueda volver a correr sin que una repetición devuelva un resultado cacheado y oculte el efecto real. No hay autenticación en la API.",
+    "description": "Casos manuales que combinan el envío de órdenes con la consulta de portfolio para verificar cómo cada estado de orden afecta el saldo disponible, el total de cuenta y las tenencias. Ejecutar en secuencia (de arriba hacia abajo) contra la aplicación local encendida. Usa la cuenta de referencia userId=1/accountNumber=10001; como las órdenes aceptadas se persisten, cada corrida modifica el estado real de esa cuenta en la base local — no ejecutar contra una base compartida. Cada solicitud de orden usa una clave de idempotencia dinámica ({{$randomUUID}}) para que la colección se pueda volver a correr sin que una repetición devuelva un resultado cacheado y oculte el efecto real. No hay autenticación en la API. Incluye T02: cancelación de la orden LIMIT pendiente y verificación de que el portfolio libera la reserva (availableCash vuelve al baseline).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "7024653"
   },
@@ -11,365 +11,684 @@
       "name": "01 - Portfolio inicial (captura baseline)",
       "request": {
         "method": "GET",
-        "header": [{"key": "Accept", "value": "application/json"}],
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber={{accountNumber}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "portfolio"],
-          "query": [{"key": "accountNumber", "value": "{{accountNumber}}"}]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
+          ]
         },
         "description": "Guarda el efectivo disponible, el total de cuenta y las cantidades de los instrumentos usados más abajo, para poder comparar con valores relativos (no absolutos) sin importar cuántas veces se corrió antes esta colección."
       },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-            "const body = pm.response.json();",
-            "pm.collectionVariables.set('baselineAvailableCash', body.availableCash);",
-            "pm.collectionVariables.set('baselineTotalValue', body.totalAccountValue);",
-            "const marketInstrument = body.instruments.find((i) => i.instrumentId === Number(pm.collectionVariables.get('instrumentIdMarket')));",
-            "pm.collectionVariables.set('baselineQtyMarket', marketInstrument ? marketInstrument.quantity : 0);",
-            "console.log('baseline availableCash=' + body.availableCash + ' totalAccountValue=' + body.totalAccountValue);"
-          ]
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('baselineAvailableCash', body.availableCash);",
+              "pm.collectionVariables.set('baselineTotalValue', body.totalAccountValue);",
+              "const marketInstrument = body.instruments.find((i) => i.instrumentId === Number(pm.collectionVariables.get('instrumentIdMarket')));",
+              "pm.collectionVariables.set('baselineQtyMarket', marketInstrument ? marketInstrument.quantity : 0);",
+              "console.log('baseline availableCash=' + body.availableCash + ' totalAccountValue=' + body.totalAccountValue);"
+            ]
+          }
         }
-      }]
+      ]
     },
     {
       "name": "02 - LIMIT BUY pendiente (reserva, no ejecuta)",
       "request": {
         "method": "POST",
         "header": [
-          {"key": "Content-Type", "value": "application/json"},
-          {"key": "Idempotency-Key", "value": "{{$randomUUID}}"}
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$randomUUID}}"
+          }
         ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/orders",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "orders"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "orders"
+          ]
         },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"instrumentId\": {{instrumentIdLimit}},\n  \"side\": \"BUY\",\n  \"type\": \"LIMIT\",\n  \"amount\": 100.00,\n  \"price\": 10.00\n}",
-          "options": {"raw": {"language": "json"}}
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "description": "Una orden LIMIT queda NEW (pendiente) hasta que algo la ejecute; esta API no simula el mercado, así que una LIMIT nunca pasa a FILLED por sí sola. Reserva fondos pero no los gasta."
       },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 201 aceptada', () => pm.response.to.have.status(201));",
-            "const body = pm.response.json();",
-            "pm.test('Queda NEW (pendiente, no ejecutada)', () => pm.expect(body.status).to.eql('NEW'));"
-          ]
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201 aceptada', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Queda NEW (pendiente, no ejecutada)', () => pm.expect(body.status).to.eql('NEW'));",
+              "pm.collectionVariables.set('pendingLimitOrderId', body.id);"
+            ]
+          }
         }
-      }]
+      ]
     },
     {
       "name": "03 - Portfolio tras LIMIT pendiente (baja disponible, no el total)",
       "request": {
         "method": "GET",
-        "header": [{"key": "Accept", "value": "application/json"}],
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber={{accountNumber}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "portfolio"],
-          "query": [{"key": "accountNumber", "value": "{{accountNumber}}"}]
-        }
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-            "const body = pm.response.json();",
-            "const baselineCash = Number(pm.collectionVariables.get('baselineAvailableCash'));",
-            "const baselineTotal = Number(pm.collectionVariables.get('baselineTotalValue'));",
-            "pm.test('availableCash bajó exactamente 100 (reserva, no gasto)', () => {",
-            "  pm.expect(body.availableCash).to.be.closeTo(baselineCash - 100, 0.01);",
-            "});",
-            "pm.test('totalAccountValue no cambia: nada se ejecutó todavía', () => {",
-            "  pm.expect(body.totalAccountValue).to.be.closeTo(baselineTotal, 0.01);",
-            "});",
-            "pm.collectionVariables.set('afterPendingCash', body.availableCash);"
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
           ]
         }
-      }]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const baselineCash = Number(pm.collectionVariables.get('baselineAvailableCash'));",
+              "const baselineTotal = Number(pm.collectionVariables.get('baselineTotalValue'));",
+              "pm.test('availableCash bajó exactamente 100 (reserva, no gasto)', () => {",
+              "  pm.expect(body.availableCash).to.be.closeTo(baselineCash - 100, 0.01);",
+              "});",
+              "pm.test('totalAccountValue no cambia: nada se ejecutó todavía', () => {",
+              "  pm.expect(body.totalAccountValue).to.be.closeTo(baselineTotal, 0.01);",
+              "});",
+              "pm.collectionVariables.set('afterPendingCash', body.availableCash);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03b - Cancelar la orden LIMIT pendiente",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"CANCELLED\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders/{{pendingLimitOrderId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Queda CANCELLED', () => pm.expect(body.status).to.eql('CANCELLED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03c - Portfolio tras cancelar (libera la reserva)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber={{accountNumber}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const baselineCash = Number(pm.collectionVariables.get('baselineAvailableCash'));",
+              "pm.test('availableCash vuelve al baseline: la cancelación liberó la reserva', () => {",
+              "  pm.expect(body.availableCash).to.be.closeTo(baselineCash, 0.01);",
+              "});",
+              "pm.collectionVariables.set('afterPendingCash', body.availableCash);"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "04 - MARKET BUY (se ejecuta al instante)",
       "request": {
         "method": "POST",
         "header": [
-          {"key": "Content-Type", "value": "application/json"},
-          {"key": "Idempotency-Key", "value": "{{$randomUUID}}"}
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$randomUUID}}"
+          }
         ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/orders",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "orders"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "orders"
+          ]
         },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"instrumentId\": {{instrumentIdMarket}},\n  \"side\": \"BUY\",\n  \"type\": \"MARKET\",\n  \"size\": 1\n}",
-          "options": {"raw": {"language": "json"}}
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "description": "Una orden MARKET se ejecuta de inmediato al último cierre válido; a diferencia de la LIMIT pendiente, esta sí gasta efectivo (lo convierte en acciones al mismo precio usado para valuar el portfolio)."
       },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-            "const body = pm.response.json();",
-            "pm.test('Queda FILLED de inmediato', () => pm.expect(body.status).to.eql('FILLED'));",
-            "pm.collectionVariables.set('marketBuyPrice', body.price);"
-          ]
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Queda FILLED de inmediato', () => pm.expect(body.status).to.eql('FILLED'));",
+              "pm.collectionVariables.set('marketBuyPrice', body.price);"
+            ]
+          }
         }
-      }]
+      ]
     },
     {
       "name": "05 - Portfolio tras MARKET BUY (disponible baja según precio ejecutado, total no cambia)",
       "request": {
         "method": "GET",
-        "header": [{"key": "Accept", "value": "application/json"}],
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber={{accountNumber}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "portfolio"],
-          "query": [{"key": "accountNumber", "value": "{{accountNumber}}"}]
-        }
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-            "const body = pm.response.json();",
-            "const afterPending = Number(pm.collectionVariables.get('afterPendingCash'));",
-            "const executedPrice = Number(pm.collectionVariables.get('marketBuyPrice'));",
-            "const baselineQty = Number(pm.collectionVariables.get('baselineQtyMarket'));",
-            "const baselineTotal = Number(pm.collectionVariables.get('baselineTotalValue'));",
-            "const instrument = body.instruments.find((i) => i.instrumentId === Number(pm.collectionVariables.get('instrumentIdMarket')));",
-            "pm.test('La cantidad del instrumento sube en 1', () => pm.expect(instrument.quantity).to.eql(baselineQty + 1));",
-            "pm.test('availableCash baja exactamente el precio ejecutado', () => {",
-            "  pm.expect(body.availableCash).to.be.closeTo(afterPending - executedPrice, 0.01);",
-            "});",
-            "pm.test('totalAccountValue no cambia: el efectivo se convirtió en acciones al mismo precio', () => {",
-            "  pm.expect(body.totalAccountValue).to.be.closeTo(baselineTotal, 0.01);",
-            "});",
-            "pm.collectionVariables.set('afterMarketBuyCash', body.availableCash);"
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
           ]
         }
-      }]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const afterPending = Number(pm.collectionVariables.get('afterPendingCash'));",
+              "const executedPrice = Number(pm.collectionVariables.get('marketBuyPrice'));",
+              "const baselineQty = Number(pm.collectionVariables.get('baselineQtyMarket'));",
+              "const baselineTotal = Number(pm.collectionVariables.get('baselineTotalValue'));",
+              "const instrument = body.instruments.find((i) => i.instrumentId === Number(pm.collectionVariables.get('instrumentIdMarket')));",
+              "pm.test('La cantidad del instrumento sube en 1', () => pm.expect(instrument.quantity).to.eql(baselineQty + 1));",
+              "pm.test('availableCash baja exactamente el precio ejecutado', () => {",
+              "  pm.expect(body.availableCash).to.be.closeTo(afterPending - executedPrice, 0.01);",
+              "});",
+              "pm.test('totalAccountValue no cambia: el efectivo se convirtió en acciones al mismo precio', () => {",
+              "  pm.expect(body.totalAccountValue).to.be.closeTo(baselineTotal, 0.01);",
+              "});",
+              "pm.collectionVariables.set('afterMarketBuyCash', body.availableCash);"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "06 - LIMIT BUY con precio absurdo (esperado 422 INSUFFICIENT_CASH)",
       "request": {
         "method": "POST",
         "header": [
-          {"key": "Content-Type", "value": "application/json"},
-          {"key": "Idempotency-Key", "value": "{{$randomUUID}}"}
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$randomUUID}}"
+          }
         ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/orders",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "orders"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "orders"
+          ]
         },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"instrumentId\": {{instrumentIdLimit}},\n  \"side\": \"BUY\",\n  \"type\": \"LIMIT\",\n  \"size\": 1,\n  \"price\": 99999999.99\n}",
-          "options": {"raw": {"language": "json"}}
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         }
       },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
-            "const body = pm.response.json();",
-            "pm.test('Motivo INSUFFICIENT_CASH', () => pm.expect(body.reason).to.eql('INSUFFICIENT_CASH'));",
-            "pm.test('La orden persiste como REJECTED', () => pm.expect(body.order.status).to.eql('REJECTED'));"
-          ]
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.test('Motivo INSUFFICIENT_CASH', () => pm.expect(body.reason).to.eql('INSUFFICIENT_CASH'));",
+              "pm.test('La orden persiste como REJECTED', () => pm.expect(body.order.status).to.eql('REJECTED'));"
+            ]
+          }
         }
-      }]
+      ]
     },
     {
       "name": "07 - Portfolio tras rechazo por fondos (no debe cambiar nada)",
       "request": {
         "method": "GET",
-        "header": [{"key": "Accept", "value": "application/json"}],
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber={{accountNumber}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "portfolio"],
-          "query": [{"key": "accountNumber", "value": "{{accountNumber}}"}]
-        }
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-            "const body = pm.response.json();",
-            "const afterMarketBuy = Number(pm.collectionVariables.get('afterMarketBuyCash'));",
-            "pm.test('availableCash sin cambios tras el rechazo', () => {",
-            "  pm.expect(body.availableCash).to.be.closeTo(afterMarketBuy, 0.01);",
-            "});"
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
           ]
         }
-      }]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const afterMarketBuy = Number(pm.collectionVariables.get('afterMarketBuyCash'));",
+              "pm.test('availableCash sin cambios tras el rechazo', () => {",
+              "  pm.expect(body.availableCash).to.be.closeTo(afterMarketBuy, 0.01);",
+              "});"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "08 - MARKET SELL sin acciones disponibles (esperado 422 INSUFFICIENT_SHARES)",
       "request": {
         "method": "POST",
         "header": [
-          {"key": "Content-Type", "value": "application/json"},
-          {"key": "Idempotency-Key", "value": "{{$randomUUID}}"}
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$randomUUID}}"
+          }
         ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/orders",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "orders"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "orders"
+          ]
         },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"instrumentId\": {{instrumentIdShort}},\n  \"side\": \"SELL\",\n  \"type\": \"MARKET\",\n  \"size\": 1\n}",
-          "options": {"raw": {"language": "json"}}
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "description": "instrumentIdShort ya tiene una posición neta negativa (vendida en descubierto) en la cuenta de referencia, con availableQuantity 0; cualquier venta adicional debe rechazarse."
       },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
-            "const body = pm.response.json();",
-            "pm.test('Motivo INSUFFICIENT_SHARES', () => pm.expect(body.reason).to.eql('INSUFFICIENT_SHARES'));"
-          ]
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.test('Motivo INSUFFICIENT_SHARES', () => pm.expect(body.reason).to.eql('INSUFFICIENT_SHARES'));"
+            ]
+          }
         }
-      }]
+      ]
     },
     {
       "name": "09 - Portfolio tras rechazo por acciones (no debe cambiar nada)",
       "request": {
         "method": "GET",
-        "header": [{"key": "Accept", "value": "application/json"}],
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber={{accountNumber}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "portfolio"],
-          "query": [{"key": "accountNumber", "value": "{{accountNumber}}"}]
-        }
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-            "const body = pm.response.json();",
-            "const afterMarketBuy = Number(pm.collectionVariables.get('afterMarketBuyCash'));",
-            "pm.test('availableCash sin cambios tras el rechazo', () => {",
-            "  pm.expect(body.availableCash).to.be.closeTo(afterMarketBuy, 0.01);",
-            "});"
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
           ]
         }
-      }]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const afterMarketBuy = Number(pm.collectionVariables.get('afterMarketBuyCash'));",
+              "pm.test('availableCash sin cambios tras el rechazo', () => {",
+              "  pm.expect(body.availableCash).to.be.closeTo(afterMarketBuy, 0.01);",
+              "});"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "10 - MARKET SELL dentro de lo disponible",
       "request": {
         "method": "POST",
         "header": [
-          {"key": "Content-Type", "value": "application/json"},
-          {"key": "Idempotency-Key", "value": "{{$randomUUID}}"}
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$randomUUID}}"
+          }
         ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/orders",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "orders"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "orders"
+          ]
         },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"instrumentId\": {{instrumentIdMarket}},\n  \"side\": \"SELL\",\n  \"type\": \"MARKET\",\n  \"size\": 2\n}",
-          "options": {"raw": {"language": "json"}}
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         }
       },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-            "const body = pm.response.json();",
-            "pm.test('Queda FILLED de inmediato', () => pm.expect(body.status).to.eql('FILLED'));",
-            "pm.collectionVariables.set('marketSellPrice', body.price);"
-          ]
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Queda FILLED de inmediato', () => pm.expect(body.status).to.eql('FILLED'));",
+              "pm.collectionVariables.set('marketSellPrice', body.price);"
+            ]
+          }
         }
-      }]
+      ]
     },
     {
       "name": "11 - Portfolio final (la venta se refleja; el total se mantuvo todo el recorrido)",
       "request": {
         "method": "GET",
-        "header": [{"key": "Accept", "value": "application/json"}],
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/api/v1/users/{{userId}}/portfolio?accountNumber={{accountNumber}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "users", "{{userId}}", "portfolio"],
-          "query": [{"key": "accountNumber", "value": "{{accountNumber}}"}]
-        }
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "type": "text/javascript",
-          "exec": [
-            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-            "const body = pm.response.json();",
-            "const afterMarketBuy = Number(pm.collectionVariables.get('afterMarketBuyCash'));",
-            "const sellPrice = Number(pm.collectionVariables.get('marketSellPrice'));",
-            "const baselineQty = Number(pm.collectionVariables.get('baselineQtyMarket'));",
-            "const baselineTotal = Number(pm.collectionVariables.get('baselineTotalValue'));",
-            "const instrument = body.instruments.find((i) => i.instrumentId === Number(pm.collectionVariables.get('instrumentIdMarket')));",
-            "pm.test('La cantidad neta terminó en baseline + 1 compra - 2 venta', () => {",
-            "  pm.expect(instrument.quantity).to.eql(baselineQty - 1);",
-            "});",
-            "pm.test('availableCash sumó el producto de la venta', () => {",
-            "  pm.expect(body.availableCash).to.be.closeTo(afterMarketBuy + sellPrice * 2, 0.01);",
-            "});",
-            "pm.test('totalAccountValue se mantuvo igual durante todo el recorrido', () => {",
-            "  pm.expect(body.totalAccountValue).to.be.closeTo(baselineTotal, 0.01);",
-            "});"
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "{{userId}}",
+            "portfolio"
+          ],
+          "query": [
+            {
+              "key": "accountNumber",
+              "value": "{{accountNumber}}"
+            }
           ]
         }
-      }]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const afterMarketBuy = Number(pm.collectionVariables.get('afterMarketBuyCash'));",
+              "const sellPrice = Number(pm.collectionVariables.get('marketSellPrice'));",
+              "const baselineQty = Number(pm.collectionVariables.get('baselineQtyMarket'));",
+              "const baselineTotal = Number(pm.collectionVariables.get('baselineTotalValue'));",
+              "const instrument = body.instruments.find((i) => i.instrumentId === Number(pm.collectionVariables.get('instrumentIdMarket')));",
+              "pm.test('La cantidad neta terminó en baseline + 1 compra - 2 venta', () => {",
+              "  pm.expect(instrument.quantity).to.eql(baselineQty - 1);",
+              "});",
+              "pm.test('availableCash sumó el producto de la venta', () => {",
+              "  pm.expect(body.availableCash).to.be.closeTo(afterMarketBuy + sellPrice * 2, 0.01);",
+              "});",
+              "pm.test('totalAccountValue se mantuvo igual durante todo el recorrido', () => {",
+              "  pm.expect(body.totalAccountValue).to.be.closeTo(baselineTotal, 0.01);",
+              "});"
+            ]
+          }
+        }
+      ]
     }
   ],
   "variable": [
-    {"key": "baseUrl", "value": "http://localhost:8080"},
-    {"key": "userId", "value": "1"},
-    {"key": "accountNumber", "value": "10001"},
-    {"key": "instrumentIdLimit", "value": "31"},
-    {"key": "instrumentIdMarket", "value": "47"},
-    {"key": "instrumentIdShort", "value": "31"},
-    {"key": "baselineAvailableCash", "value": ""},
-    {"key": "baselineTotalValue", "value": ""},
-    {"key": "baselineQtyMarket", "value": ""},
-    {"key": "afterPendingCash", "value": ""},
-    {"key": "marketBuyPrice", "value": ""},
-    {"key": "afterMarketBuyCash", "value": ""},
-    {"key": "marketSellPrice", "value": ""}
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "userId",
+      "value": "1"
+    },
+    {
+      "key": "accountNumber",
+      "value": "10001"
+    },
+    {
+      "key": "instrumentIdLimit",
+      "value": "31"
+    },
+    {
+      "key": "instrumentIdMarket",
+      "value": "47"
+    },
+    {
+      "key": "instrumentIdShort",
+      "value": "31"
+    },
+    {
+      "key": "baselineAvailableCash",
+      "value": ""
+    },
+    {
+      "key": "baselineTotalValue",
+      "value": ""
+    },
+    {
+      "key": "baselineQtyMarket",
+      "value": ""
+    },
+    {
+      "key": "afterPendingCash",
+      "value": ""
+    },
+    {
+      "key": "marketBuyPrice",
+      "value": ""
+    },
+    {
+      "key": "afterMarketBuyCash",
+      "value": ""
+    },
+    {
+      "key": "marketSellPrice",
+      "value": ""
+    },
+    {
+      "key": "pendingLimitOrderId",
+      "value": ""
+    }
   ]
 }
