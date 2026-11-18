@@ -1,6 +1,6 @@
 # coco-bank-challenge
 
-API backend de un sistema bancario. Están implementadas la consulta de portfolio y la búsqueda de activos; las órdenes se abordarán mediante su especificación de feature.
+API backend de un sistema bancario. Están implementadas la consulta de portfolio, la búsqueda de activos y el envío idempotente de órdenes.
 
 La consigna original solicita Node.js. Este proyecto usa Java por decisión documentada en [`PROJECT_SPEC.md`](./PROJECT_SPEC.md).
 
@@ -55,6 +55,8 @@ set +a
 
 La aplicación escucha por defecto en `http://localhost:8080`. El endpoint de portfolio es `GET /api/v1/users/{userId}/portfolio?accountNumber=...`.
 Las posiciones netas negativas se incluyen con cantidad y valor de mercado negativos, según la spec de portfolio.
+Cada posición expone `quantity` y `availableQuantity`; esta última descuenta ventas `NEW`
+sin modificar las acciones conservadas y nunca puede ser negativa.
 El porcentaje de rendimiento acumulado de cada instrumento se devuelve en el campo `performance`.
 `dailyReturn` es la variación diaria estimada en pesos cuando hay un cierre válido de hoy y la posición no registra operaciones `FILLED` hoy; si no puede calcularse, es `null`. La fecha de la orden se usa como proxy de ejecución y puede no reflejar ejecuciones posteriores; ver la spec para las condiciones y limitaciones.
 La valuación usa el último `close` positivo fechado o, si no existe, el `previousClose` positivo del registro fechado más reciente; este último no tiene fecha exacta en el esquema. Si no hay precio utilizable, la posición permanece en la respuesta como `UNAVAILABLE` y se excluye del total.
@@ -80,6 +82,14 @@ curl 'http://localhost:8080/api/v1/instruments?query=banco&field=name'
 
 La [colección Postman](./src/main/resources/postman/Coco%20Bank%20-%20Portfolio.postman_collection.json)
 incluye ejemplos de éxito y errores de búsqueda. Las cotizaciones dependen de la base local.
+
+### Enviar órdenes
+
+`POST /api/v1/users/{userId}/orders` envía una orden `MARKET` o `LIMIT` con
+`instrumentId`, `side`, exactamente una alternativa entre `size` y `amount`, y `price`
+para órdenes `LIMIT`. Requiere `Idempotency-Key`. No requiere autenticación. Las órdenes
+aceptadas responden 201; los rechazos de negocio persistidos responden 422 con la orden
+y un motivo estable; repetir una solicitud equivalente devuelve el resultado original.
 
 ### Comprobar que la aplicación está levantada
 
@@ -114,8 +124,18 @@ Aplicar formato:
 ./gradlew spotlessApply
 ```
 
+## Verificación con POSTMAN
+
+En `src/main/resources/postman` están las colecciones `Coco Bank - Portfolio`,
+`Coco Bank - Orders` y `Coco Bank - Order Portfolio Impact` (esta última combina
+envío de órdenes con consulta de portfolio para verificar cómo cada estado de
+orden —pendiente, ejecutada, rechazada— afecta el efectivo disponible, el total
+de cuenta y las tenencias; usa claves de idempotencia dinámicas para poder
+re-ejecutarse, pero modifica el estado real de la cuenta de referencia en la
+base local).
+
+
 ## Estado
 
-Portfolio y búsqueda implementados según [`specs/001-get-portfolio/`](./specs/001-get-portfolio/)
-y [`specs/002-search-instruments/`](./specs/002-search-instruments/). Órdenes y autenticación
-no están implementadas; las decisiones funcionales pendientes se resuelven en la spec de cada feature.
+Portfolio, búsqueda y envío de órdenes implementados según sus specs. La autenticación no
+está implementada por estar fuera de alcance.

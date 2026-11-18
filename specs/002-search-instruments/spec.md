@@ -58,7 +58,3 @@ Permitir que un usuario encuentre instrumentos disponibles en el catálogo del m
 - Los resultados incluyen los campos acordados, respetan el filtro de tipo y el orden establecido, e informan la cotización conforme a RF-5.
 - Las consultas sin coincidencias y los criterios inválidos responden 404 y 400, respectivamente.
 - La consulta no altera los datos del catálogo, órdenes ni cotizaciones.
-
-## Dudas abiertas
-
-- Ninguna por el momento; las decisiones funcionales y del contrato quedaron acordadas.

@@ -1,0 +1,125 @@
+{
+  "info": {
+    "_postman_id": "fbc7df6c-1ad6-4f0c-9f6d-9e3b83a4ebd1",
+    "name": "Coco Bank - Orders",
+    "description": "Casos HTTP para T01: envío, rechazo, replay y conflicto de órdenes. No usa autenticación. Debe existir un usuario con fondos disponibles y un instrumento ACCIONES con cotización.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "userId", "value": "1" },
+    { "key": "instrumentId", "value": "31" },
+    { "key": "idempotencyKey", "value": "submit-order-manual-001" }
+  ],
+  "item": [
+    {
+      "name": "Enviar orden LIMIT — esperado 201",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"instrumentId\": {{instrumentId}},\n  \"side\": \"BUY\",\n  \"type\": \"LIMIT\",\n  \"amount\": 100.00,\n  \"price\": 10.00\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('acepta la orden una sola vez', () => pm.response.to.have.status(201));",
+              "pm.test('devuelve NEW', () => pm.expect(pm.response.json().status).to.eql('NEW'));",
+              "pm.test('no devuelve amount', () => pm.expect(pm.response.json()).not.to.have.property('amount'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Repetir solicitud — esperado 201 con mismo cuerpo",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"instrumentId\": {{instrumentId}},\n  \"side\": \"BUY\",\n  \"type\": \"LIMIT\",\n  \"amount\": 100.0,\n  \"price\": 10.0\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('reproduce el resultado original', () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reutilizar clave con otros datos — esperado 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"instrumentId\": {{instrumentId}},\n  \"side\": \"BUY\",\n  \"type\": \"LIMIT\",\n  \"size\": 1,\n  \"price\": 10.00\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('detecta conflicto', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Enviar orden rechazada — esperado 422",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "rejected-{{idempotencyKey}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"instrumentId\": {{instrumentId}},\n  \"side\": \"BUY\",\n  \"type\": \"LIMIT\",\n  \"amount\": 999999999999.99,\n  \"price\": 100000.00\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('persiste el rechazo', () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.expect(body.reason).to.be.oneOf(['INSUFFICIENT_CASH', 'INSUFFICIENT_SHARES']);",
+              "pm.expect(body.order.status).to.eql('REJECTED');"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -21,7 +21,18 @@ Las versiones fijan una base reproducible; una actualización requiere comprobar
 ## Arquitectura
 
 - Arquitectura hexagonal liviana, sin módulos o capas adicionales por convención.
+- Los paquetes `adapter`, `application` y `domain` se organizan por capa en la raíz.
+  - `domain` se subdivide por concepto/agregado de dominio (`order`, `portfolio`,
+    `instrument`, `market`, `user`), no por feature de negocio.
+  - `application` y `adapter` se subdividen por tipo técnico (`usecase`, `port.out`,
+    `dto`, `exception` en `application`; `in.rest.{controller,handler,representation,filter}`
+    y `out.persistence.{adapter,entity,repository}` en `adapter`), sin carpeta por
+    feature. Varios conceptos de dominio son consumidos por más de un caso de uso
+    (por ejemplo `User`, `Instrument`, `MarketData`, `Order`), así que separar por
+    feature producía puertos/adaptadores/entidades "propios" de una sola feature
+    cuando en realidad eran compartidos.
 - Dirección de dependencias: adaptadores → aplicación → dominio. Los puertos de aplicación describen accesos externos y los adaptadores los implementan.
+- Los puertos de acceso a entidades se nombran por el concepto de dominio y, siempre que sea práctico, devuelven objetos de dominio completos. Una lectura de un campo aislado debe justificarse por rendimiento o porque un objeto de dominio no es necesario.
 - El dominio contiene conceptos y reglas de negocio, independiente de HTTP, persistencia, frameworks y tipos de aplicación.
 - La aplicación coordina casos de uso; los adaptadores contienen detalles de transporte, persistencia e integración.
 - El paquete Java base es `com.cocobank.challenge`.

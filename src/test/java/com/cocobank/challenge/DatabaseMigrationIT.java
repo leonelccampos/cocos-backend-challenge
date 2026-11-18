@@ -49,6 +49,23 @@ class DatabaseMigrationIT {
         .contains("where (date is not null)");
   }
 
+  @Test
+  void createsIdempotencyTableForOrderResults() {
+    Integer keyColumns =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.key_column_usage
+            WHERE table_name = 'order_idempotency'
+              AND constraint_name = 'order_idempotency_pkey'
+              AND column_name IN ('userid', 'idempotencykey')
+            """,
+            Integer.class);
+
+    assertThat(keyColumns).isEqualTo(2);
+    assertThat(countRows("order_idempotency")).isZero();
+  }
+
   private int countRows(String tableName) {
     return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + tableName, Integer.class);
   }

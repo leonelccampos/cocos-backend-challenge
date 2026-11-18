@@ -2,7 +2,7 @@
 
 ## Contexto y objetivo
 
-Permitir consultar el portfolio de una cuenta mediante el ID del usuario y su número de cuenta. La respuesta muestra los pesos disponibles, el valor total calculado de la cuenta y las posiciones netas de instrumentos, con su cantidad, valor de mercado y rendimiento acumulado y diario.
+Permitir consultar el portfolio de una cuenta mediante el ID del usuario y su número de cuenta. La respuesta muestra los pesos disponibles, el valor total calculado de la cuenta y las posiciones netas de instrumentos, con su cantidad, acciones disponibles para vender, valor de mercado y rendimiento acumulado y diario.
 
 Los registros de referencia representan una cuenta por usuario. `performance` es el porcentaje acumulado definido en estos requisitos; `dailyReturn` es una estimación diaria en pesos.
 
@@ -15,6 +15,7 @@ Los registros de referencia representan una cuenta por usuario. `performance` es
 - Como usuario, quiero consultar una cuenta mediante su ID y número de cuenta para conocer mi portfolio.
 - Como usuario, quiero distinguir los pesos disponibles para operar del valor total de la cuenta.
 - Como usuario, quiero conocer la cantidad, el valor de mercado y el rendimiento acumulado de los instrumentos que conservo.
+- Como usuario, quiero distinguir las acciones que conservo de las que tengo disponibles para vender.
 - Como usuario, quiero conocer la variación diaria estimada en pesos de cada posición cuando pueda calcularse.
 - Como usuario, quiero saber cuándo un instrumento no pudo valuarse y si fue excluido del total.
 
@@ -41,6 +42,9 @@ Los registros de referencia representan una cuenta por usuario. `performance` es
 
 - Cuando se calcule la cantidad de acciones de un instrumento, el sistema deberá considerar las compras y ventas `FILLED`.
 - Mientras una venta `NEW` permanezca pendiente, sus acciones deberán seguir formando parte de las acciones que conserva el usuario.
+- Cuando se informe una posición, el sistema deberá exponer `quantity` como la cantidad neta conservada y `availableQuantity` como la cantidad entera disponible para vender.
+- Cuando se calcule `availableQuantity`, el sistema deberá restar de la cantidad neta conservada las acciones reservadas por ventas `NEW` del mismo instrumento, con un mínimo de cero.
+- Cuando una venta pendiente deje de estar `NEW`, su cantidad ya no deberá descontarse como reserva; una venta `FILLED` deberá afectar la cantidad neta conservada.
 - Las órdenes `NEW`, `CANCELLED` y `REJECTED` no deberán alterar la cantidad ejecutada.
 - Cuando una operación expresada en pesos se ejecute, la cantidad reflejada deberá corresponder a acciones enteras efectivamente ejecutadas; no se admitirán fracciones de acciones.
 - Una cantidad neta negativa deberá incluirse con su signo; no se inferirá a partir de ella que el envío de nuevas ventas sin acciones está permitido.
@@ -94,11 +98,12 @@ Los registros de referencia representan una cuenta por usuario. `performance` es
 - Usuario inexistente, cuenta inexistente o número de cuenta no asociado al ID: responder 404.
 - Cuenta sin acciones ejecutadas: informar sus pesos disponibles y un listado vacío.
 - Posición neta negativa: incluir su cantidad y valor de mercado con signo, y restar este valor del total; aplicar la fórmula de rendimiento acordada.
+- Posición neta negativa: informar `availableQuantity: 0`.
 - Cierres faltantes, cero o negativos: buscar el último `close` positivo fechado; si no existe, probar el `previousClose` positivo del registro fechado más reciente.
 - Ningún precio utilizable: conservar la posición sin valuación y excluirla del valor total.
 - Varios cierres positivos para el mismo instrumento en un día: usar el de mayor ID.
 - Orden `NEW` de compra: el efectivo reservado no está disponible para operar, pero sigue contando en el valor total.
-- Orden `NEW` de venta: las acciones siguen contando en la cantidad y el valor total. La prevención de que se oferten en otra orden queda fuera de esta funcionalidad.
+- Orden `NEW` de venta: las acciones siguen contando en `quantity` y el valor total, pero se descuentan de `availableQuantity`, que no puede ser negativo.
 - Importe de compras ejecutadas igual a cero: mostrar el porcentaje como no disponible.
 - Cotizaciones históricas estáticas o fecha de ejecución no comprobable mediante el proxy acordado: mostrar `dailyReturn: null`.
 
@@ -118,6 +123,7 @@ Los registros de referencia representan una cuenta por usuario. `performance` es
 - El cálculo de pesos disponibles refleja los movimientos ejecutados y las reservas de órdenes pendientes.
 - El valor total incluye las reservas y excluye del cálculo los instrumentos que no pueden valuarse, indicándolo en el detalle.
 - Las cantidades reflejan acciones enteras ejecutadas.
+- Cada posición informa sus acciones disponibles para vender, descontando ventas pendientes sin modificar la cantidad conservada.
 - El rendimiento acumulado incluye resultados de ventas ejecutadas y valor actual de las acciones conservadas.
 - Las solicitudes con parámetros inválidos responden 400; la ruta sin `userId` y las cuentas inexistentes o no coincidentes responden 404, según RF-1.
 
